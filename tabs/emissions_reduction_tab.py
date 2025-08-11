@@ -632,7 +632,7 @@ def show_emissions_reduction_plan():
     df_stacked_bar["formatted_static"] = df_stacked_bar["static_emissions_q"].apply(format_number_short)
     df_stacked_bar["formatted_avoided"] = df_stacked_bar["emissions_reduction_potential"].apply(format_number_short)
 
-    print(df_stacked_bar)
+    # print(df_stacked_bar)
 
     fig = go.Figure()
 
