@@ -960,13 +960,13 @@ def show_emissions_reduction_plan():
             {dropdown_join}
 
             {reduction_where_sql}
+                and lower(ae.asset_type) <> 'biomass'
             
             GROUP BY 
                 ae.asset_name,                
                 ae.country_name,
                 ae.sector,
                 ae.subsector,
-                ae.asset_type,
                 ae.asset_type,
                 pct.{percentile_col}
         ) assets
