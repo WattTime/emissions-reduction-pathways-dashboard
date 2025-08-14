@@ -6,6 +6,7 @@ from config import CONFIG
 from utils.utils import get_release_version
 from tabs.monthly_dashboard_tab import show_monthly_dashboard
 from tabs.emissions_reduction_tab import show_emissions_reduction_plan
+from tabs.abatement_curve_tab import show_abatement_curve
 
 
 st.set_page_config(layout="wide")
@@ -40,11 +41,14 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["Reduction Opportunities", "Monthly Trends"])
+tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Monthly Trends", "Abatement Curve"])
 
 with tab1:
     show_emissions_reduction_plan()
     # pass
 with tab2:
     show_monthly_dashboard()
+
+with tab3:
+    show_abatement_curve()
 
