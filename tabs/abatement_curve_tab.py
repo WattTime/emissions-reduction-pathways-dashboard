@@ -49,6 +49,7 @@ curYear, numYear = 2024, 1
 dict_relabel = {
         'unfccc_annex': {True: 'Annex1', False: 'Non-Annex1'},
         'em_finance': {True: 'Emerging Markets', False: 'Developed Markets'},
+        'developed_un': {True: 'Global North', False: 'Global South'}
 }
 
 # Asset Color
@@ -60,6 +61,10 @@ dict_color['unfccc_annex'] = {
 dict_color['em_finance'] = {
     'Developed Markets': '#407076',
     'Emerging Markets': '#FBBA1A'
+}
+dict_color['developed_un'] = {
+    'Global North': '#407076',
+    'Global South': '#FBBA1A'
 }
 dict_color['asset_type'] = {
     'Smelting': '#407076',
@@ -167,10 +172,10 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         'label_distance': 0.003,
         'label_distance_scalar': 20,
         'label_limit': 0.2,
-        'sort': ['average_emissions_factor','activity'],
+        'sort': ['emissions_factor','activity'],
         'sort_order': [False,True],
         'xaxis': ['activity'],  #not sured as yet
-        'yaxis': ['average_emissions_factor'],   #not used as yet
+        'yaxis': ['emissions_factor'],   #not used as yet
     }
     for k,v in cond0.items():
         if k not in cond: cond[k] = v
@@ -182,11 +187,11 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
     # *** Remove data for easy viewing ***
     if choice_group == 'asset':
         if sector1 in ['solid-waste-disposal']:
-            df = df.loc[df['average_emissions_factor']<=3,:]
+            df = df.loc[df['emissions_factor']<=3,:]
         elif sector1 in ['electricity-generation']:
-            df = df.loc[df['average_emissions_factor']<=1.5,:]
+            df = df.loc[df['emissions_factor']<=1.5,:]
         elif sector1 in ['road-transportation']:
-            df = df.loc[df['average_emissions_factor']<=5,:]
+            df = df.loc[df['emissions_factor']<=5,:]
 
     if choice_group == 'asset':
         df = df.sort_values(cond['sort'], ascending=cond['sort_order'])
@@ -204,13 +209,13 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
             fds_key = [choice_color] + ['iso3_country','country_name',choice_group,'sector','subsector']
 
         df = df.pivot_table(index=fds_key, values=['activity','emissions_quantity'], aggfunc='sum')
-        df['average_emissions_factor'] = df['emissions_quantity']/df['activity']
+        df['emissions_factor'] = df['emissions_quantity']/df['activity']
         df = df.sort_values(cond['sort'], ascending=cond['sort_order'])
 
         if sector1 in ['road-transportation']:
-            df = df.loc[df['average_emissions_factor']<=5,:]
+            df = df.loc[df['emissions_factor']<=5,:]
         elif sector1 in ['electricity-generation']:
-            df = df.loc[df['average_emissions_factor']<=1.5,:]
+            df = df.loc[df['emissions_factor']<=1.5,:]
         df = df.reset_index()
 
         df['activity_cum'] = df['activity'].cumsum()
@@ -235,7 +240,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
 
     fig.add_trace(go.Scatter(
         x=[0, df['activity_cum'][1]],  # From 0 to the second data point (row 1) and back to 0
-        y=[df['average_emissions_factor'][1], df['average_emissions_factor'][1]],  # From 0 to the second emissions factor (row 1) and back to 0
+        y=[df['emissions_factor'][1], df['emissions_factor'][1]],  # From 0 to the second emissions factor (row 1) and back to 0
         fill='tozeroy',  # Fill the area under the line (this is the key)
         fillcolor=f'{df["color"][1]}',  # Use the color of row 1 for the shading
         line=dict(color=f'{df["color"][1]}', width=2),  # Line color for the shading (row 1)
@@ -253,7 +258,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         color_value = df['color'][i]  # Get the color from the color_variable
         fig.add_trace(go.Scatter(
             x=[df['activity_cum'][i-1], df['activity_cum'][i]],  # X values for the segment
-            y=[df['average_emissions_factor'][i-1], df['average_emissions_factor'][i]],  # Y values for the segment
+            y=[df['emissions_factor'][i-1], df['emissions_factor'][i]],  # Y values for the segment
             fill='tozeroy',  # Fill the area under the line
             fillcolor=f'{color_value}',  # Set fill color
             line=dict(color=f'{color_value}', width=2),  # Set line color
@@ -273,7 +278,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
                     list_label += [df['country_name'][i]]
                     fig.add_annotation(
                         x=df['activity_cum'][i-1] + (df['activity_cum'][i]-df['activity_cum'][i-1])/2,  # Position the annotation at the x-value of the end of the shaded area
-                        y=df['average_emissions_factor'][i]*1.01,  # Position it slightly above the maximum y-value of the shaded area
+                        y=df['emissions_factor'][i]*1.01,  # Position it slightly above the maximum y-value of the shaded area
                         text='<br>'.join(df['country_name'][i].split(' ')),  # Replace with your desired text
                         showarrow=True,  # Show an arrow pointing to the shaded area
                         arrowhead=1,  # Customize the arrow's appearance
@@ -297,7 +302,6 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
     # df_schema = ct.get_data('database','asset_schema')
     # fld_schema = df_schema.loc[df_schema['subsector']==gdf_asset.subsector.unique().tolist()[0], "activity"].iloc[0]
     fig.update_layout(
-        title=f'Climate TRACE: {sector1} ({curYear})',
         # xaxis_title=f"activity ({fld_schema if 'xaxis_title' not in cond else cond['xaxis_title']})",
         # yaxis_title=f"emissions factor (t of CO2e per {fld_schema if 'yaxis_title' not in cond else cond['yaxis_title']})",
         showlegend=True,  # Show legend
@@ -322,10 +326,9 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
             zeroline=True,  # Hide the x-axis zero line (optional)
             zerolinecolor='lightgrey',
             gridcolor='lightgrey',  # Set grid line color to light grey
-            range=[0, round(max(df['average_emissions_factor']), 4) if max(df['average_emissions_factor'])<1 else math.ceil(max(df['average_emissions_factor']))],  # Adjust the y-axis range
+            range=[0, round(max(df['emissions_factor']), 4) if max(df['emissions_factor'])<1 else math.ceil(max(df['emissions_factor']))],  # Adjust the y-axis range
         ),
-        height=600,
-        width=1200,
+        height=600
     
     )
 
@@ -341,24 +344,34 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         )
         
         # Add annotation for the line, placed to the right outside the plot
-        ax_y_max = max(df['average_emissions_factor'])
+        ax_y_max = max(df['emissions_factor'])
         text_y = line_y
         if line_y + 0.015 * ax_y_max > ax_y_max:
             text_y = line_y - 0.015 * ax_y_max
         elif line_y - 0.015 * ax_y_max < 0:
             text_y = line_y + 0.015 * ax_y_max
 
+        # fig.add_annotation(
+        #     x=x_max + 1, 
+        #     y=text_y,  # Position text at the same y-value as the line
+        #     text=line_name,  # Text to display
+        #     showarrow=False,  # No arrow pointing to the text
+        #     font=dict(size=12, color="#444546"),  # Font size and color
+        #     align="left",  # Align the text to the left
+        #     xanchor="left",  # Anchor the text to the left
+        #     yanchor="middle",  # Anchor the text vertically at the middle of the line
+        #     xref="x",  # Set the reference system for the x-coordinate
+        #     yref="y"  # Set the reference system for the y-coordinate
+        # )
+
         fig.add_annotation(
-            x=x_max + 1,  # Place the text beyond the x-axis maximum
+            x=1.02, 
             y=text_y,  # Position text at the same y-value as the line
             text=line_name,  # Text to display
             showarrow=False,  # No arrow pointing to the text
             font=dict(size=12, color="#444546"),  # Font size and color
-            align="left",  # Align the text to the left
-            xanchor="left",  # Anchor the text to the left
-            yanchor="middle",  # Anchor the text vertically at the middle of the line
-            xref="x",  # Set the reference system for the x-coordinate
-            yref="y"  # Set the reference system for the y-coordinate
+            xref="paper",  # Set the reference system for the x-coordinate
+            yref="paper"  # Set the reference system for the y-coordinate
         )
 
     return fig
@@ -368,40 +381,133 @@ def show_abatement_curve():
     annual_asset_path = CONFIG['annual_asset_path']
 
     # Filter subsector selection using Streamlit widget
-    col1, col2, col3 = st.columns(3)
+    subsector_col, group_col, color_col, year_col = st.columns(4)
 
-    with col1:
-        subsector_choice = st.selectbox(
-            "Select subsector",
-            options=['iron-and-steel', 'aluminum', 'electricity-generation']
+    with subsector_col:
+        selected_subsector= st.selectbox(
+            "Subsector",
+            options=['iron-and-steel', 'aluminum', 'solid-waste-disposal', 'electricity-generation']
         )
 
-    with col2:
-        choice_group = st.selectbox(
+    with group_col:
+        selected_group = st.selectbox(
             "Group type",
-            ["asset", "country", "BA"]
+            options=["asset", "country", "BA"]
         )
 
-    with col3:
-        choice_color = st.selectbox(
-            "Color category",
-            ['unfccc_annex', 'em_finance', 'continent', 'sector']
+    with color_col:
+        selected_color = st.selectbox(
+            "Color group",
+            options=['unfccc_annex', 'em_finance', 'continent', 'developed_un', 'sector']
+        )
+
+    with year_col:
+        selected_year = st.selectbox(
+            "Year",
+            options=[2024],
+            disabled=True
+
         )
 
     con = duckdb.connect()
 
     query_assets = f'''
             SELECT *
-            FROM '{annual_asset_path}'
-            WHERE subsector = '{subsector_choice}'
+            FROM '{annual_asset_path}' ae
+            WHERE 
+                subsector = '{selected_subsector}'
+                AND year = {selected_year}
         '''
+    
+    #cond = {'sort_order': [True, True], 'label_limit': 0, 'label_distance': 0.0015}
 
-    test = con.execute(query_assets).df()
-    test['unfccc_annex'] = test['unfccc_annex'].replace(dict_relabel['unfccc_annex'])
-    test['em_finance'] = test['em_finance'].replace(dict_relabel['em_finance'])  
+    df_assets = con.execute(query_assets).df()
+    df_assets['emissions_factor'] = df_assets['emissions_quantity'] / df_assets['activity']
+    df_assets['unfccc_annex'] = df_assets['unfccc_annex'].replace(dict_relabel['unfccc_annex'])
+    df_assets['em_finance'] = df_assets['em_finance'].replace(dict_relabel['em_finance'])  
+    df_assets['developed_un'] = df_assets['developed_un'].replace(dict_relabel['developed_un'])  
+
+    total_emissions = df_assets['emissions_quantity'].sum()
+    total_assets = df_assets['asset_id'].nunique()
 
     # Call your function
-    fig = plot_stairs(test, choice_group, choice_color, dict_color, dict_lines)
+    fig = plot_stairs(df_assets, selected_group, selected_color, dict_color, dict_lines)
+
+        # ---------- Title ----------
+    
+    iron_and_steel = (
+        f"The iron and steel sector emits approximately {round(total_emissions / 1000000000, 1)} billion tons of CO₂ equivalent worldwide "
+        f"each year. One of the most effective strategies to reduce these emissions is upgrading steel plants with greener technologies "
+        f"such as Direct Reduced Iron–Electric Arc Furnace (DRI-EAF). <br><br> While greener steel technologies almost always lower "
+        f"emissions, their impact is greatest when applied to mills with higher-emitting existing technology types, strong suitability "
+        f"for conversion to low-emission options like DRI-EAF, and access to cleaner electricity sources in the local grid. "
+        f"Climate TRACE analyzed the world's largest {total_assets} steel mills to determine which facilities combine "
+        f"these factors most effectively. The chart below shows the impact of all opportunities, ranked by "
+        f"the emissions reduction potential per ton of steel produced using cleaner technology."
+    )
+
+    aluminum = (
+        f"The aluminum sector emits approximately {round(total_emissions / 1000000, 1)} billion tons of CO₂ equivalent worldwide "
+        f"each year. One of the most effective strategies to _____. <br><br>____ "
+        f"Climate TRACE analyzed the world's largest {total_assets} ____ to determine which facilities combine "
+        f"these factors most effectively. The chart below shows the impact of all opportunities, ranked by "
+        f"the emissions reduction potential per ton of aluminum produced using cleaner technology."
+    )
+    
+    solid_waste_disposal = (
+        f"The solid waste sector emits million tons of methane "
+        f"(equivalent to  {round(total_emissions / 1000000000, 1)} billion tons of CO₂) worldwide each year. "
+        f"One of the most effective strategies for reducing landfill emissions "
+        f"is to cover them, particularly at unmanaged dumpsites in emerging economies "
+        f"across the global south. <br><br> While covering landfills almost always reduces emissions, "
+        f"the impact is greatest for sites with poorer existing coverage and higher organic waste content. "
+        f"Drawing on best practices from developed nations, covering landfills with materials such as "
+        f"sand and clay can significantly cut methane emissions. Climate TRACE analyzed these characteristics "
+        f"across {total_assets} of the world’s largest landfills to identify where covering landfills would likely "
+        f"offer the greatest emissions reductions per ton of waste covered."
+    )
+    
+    electricity_generation = (
+        f"The electricity sector emits approximately {round(total_emissions / 1000000000, 1)} billion tons of CO₂ worldwide each year. "
+        f"One of the most effective strategies for reducing emissions in this sector is to build renewable "
+        f"energy capacity. Because power grids constantly balance supply and demand, adding renewable energy "
+        f"anywhere always displaces generation at nearby 'marginal' power plants on the same grid. <br><br>"
+        f"While renewable energy projects almost always cut emissions, their impact is greatest in grids where "
+        f"marginal plants rely on fossil fuels—especially highly emissions-intensive fuels such as anthracite coal—"
+        f"and operate with low energy efficiency. Climate TRACE analyzed all {total_assets} power grids worldwide to pinpoint "
+        f"where building renewable energy would achieve the greatest emissions reductions per kilowatt-hour generated. "
+        f"The chart below shows the potential impact of all opportunities, ranked by emissions reductions per "
+        f"kilowatt-hour of renewable energy produced."
+    )
+    
+    summary_solution = {
+        'iron-and-steel': iron_and_steel,
+        'aluminum': aluminum, 
+        'solid-waste-disposal': solid_waste_disposal, 
+        'electricity-generation': electricity_generation}
+    
+    summary_text = (f"{summary_solution[selected_subsector]}")
+
+    # display text
+    st.markdown(
+        f"""
+        <div style="margin-top: 8px; font-size: 17px; line-height: 1.5;">
+            {summary_text}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div style="text-align:left; font-size:24px; font-weight:600; margin-top:10px;">
+            Climate TRACE: {selected_subsector} ({selected_year})
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # Display in Streamlit
     st.plotly_chart(fig, use_container_width=True)
