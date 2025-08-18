@@ -33,24 +33,7 @@ import os
 #                          reset_state_and_county)
 
 from config import CONFIG
-from utils.utils import (format_dropdown_options, 
-                         map_region_condition, 
-                         format_number_short, 
-                         create_excel_file, 
-                         bordered_metric, 
-                         map_percentile_col,
-                         is_country,
-                         reset_city,
-                         reset_state_and_county)
-
-curYear, numYear = 2024, 1
-
-#Relabeling group column values for charts
-dict_relabel = {
-        'unfccc_annex': {True: 'Annex1', False: 'Non-Annex1'},
-        'em_finance': {True: 'Emerging Markets', False: 'Developed Markets'},
-        'developed_un': {True: 'Global North', False: 'Global South'}
-}
+from utils.utils import (relabel_regions)
 
 # Asset Color
 dict_color = {}
@@ -146,25 +129,6 @@ dict_lines['aluminum'] = {
 #     'Pickup': 0.000268,
 }
 
-def lighten_hex_color(hex_color, factor=0.2):
-    """
-    Lightens a hex color by a specified factor.
-    
-    :param hex_color: Hex code of the color to lighten (e.g., '#ff5733').
-    :param factor: The factor by which to lighten the color. Default is 0.2.
-    :return: Lightened hex color code.
-    """
-    # Convert hex to RGB
-    rgb = mcolors.hex2color(hex_color)
-    
-    # Scale the RGB values
-    rgb_lightened = [min(1, x + factor) for x in rgb]  # Ensure that the values do not go above 1
-    
-    # Convert back to hex
-    hex_lightened = mcolors.rgb2hex(rgb_lightened)
-    
-    return hex_lightened
-
 def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, cond={}):
     #Setup
     cond0 = {
@@ -182,6 +146,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
 
     # Example data
     df = gdf_asset.copy()
+    activity_unit = df['activity_units'][0]
     sector1 = df.subsector.unique()[0]
 
     # *** Remove data for easy viewing ***
@@ -200,7 +165,6 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
 
         df[choice_color] = df[choice_color].apply(lambda x: False if pd.isna(x)==True else x)
         df['color'] = df[choice_color].map(dict_color[choice_color])
-        df['color'] = df['color'].apply(lambda x: lighten_hex_color(x,0))
 
     elif choice_group in ['country', 'BA']:
         if choice_group == 'country':
@@ -221,7 +185,6 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         df['activity_cum'] = df['activity'].cumsum()
         df['color'] = 'red'
         df['color'] = df[choice_color].map(dict_color[choice_color])
-        df['color'] = df['color'].apply(lambda x: lighten_hex_color(x,0))
 
     new_row = []
     for col in df.columns:
@@ -299,11 +262,9 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         ))
 
     # Update layout
-    # df_schema = ct.get_data('database','asset_schema')
-    # fld_schema = df_schema.loc[df_schema['subsector']==gdf_asset.subsector.unique().tolist()[0], "activity"].iloc[0]
     fig.update_layout(
-        # xaxis_title=f"activity ({fld_schema if 'xaxis_title' not in cond else cond['xaxis_title']})",
-        # yaxis_title=f"emissions factor (t of CO2e per {fld_schema if 'yaxis_title' not in cond else cond['yaxis_title']})",
+        xaxis_title=f"activity ({activity_unit if 'xaxis_title' not in cond else cond['xaxis_title']})",
+        yaxis_title=f"emissions factor (t of CO2e per {activity_unit if 'yaxis_title' not in cond else cond['yaxis_title']})",
         showlegend=True,  # Show legend
         legend=dict(
             x=0,  # X position (0 is the left edge)
@@ -351,27 +312,17 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         elif line_y - 0.015 * ax_y_max < 0:
             text_y = line_y + 0.015 * ax_y_max
 
-        # fig.add_annotation(
-        #     x=x_max + 1, 
-        #     y=text_y,  # Position text at the same y-value as the line
-        #     text=line_name,  # Text to display
-        #     showarrow=False,  # No arrow pointing to the text
-        #     font=dict(size=12, color="#444546"),  # Font size and color
-        #     align="left",  # Align the text to the left
-        #     xanchor="left",  # Anchor the text to the left
-        #     yanchor="middle",  # Anchor the text vertically at the middle of the line
-        #     xref="x",  # Set the reference system for the x-coordinate
-        #     yref="y"  # Set the reference system for the y-coordinate
-        # )
-
         fig.add_annotation(
-            x=1.02, 
+            x=x_max + 1, 
             y=text_y,  # Position text at the same y-value as the line
             text=line_name,  # Text to display
             showarrow=False,  # No arrow pointing to the text
             font=dict(size=12, color="#444546"),  # Font size and color
-            xref="paper",  # Set the reference system for the x-coordinate
-            yref="paper"  # Set the reference system for the y-coordinate
+            align="left",  # Align the text to the left
+            xanchor="left",  # Anchor the text to the left
+            yanchor="middle",  # Anchor the text vertically at the middle of the line
+            xref="x",  # Set the reference system for the x-coordinate
+            yref="y"  # Set the reference system for the y-coordinate
         )
 
     return fig
@@ -423,9 +374,7 @@ def show_abatement_curve():
 
     df_assets = con.execute(query_assets).df()
     df_assets['emissions_factor'] = df_assets['emissions_quantity'] / df_assets['activity']
-    df_assets['unfccc_annex'] = df_assets['unfccc_annex'].replace(dict_relabel['unfccc_annex'])
-    df_assets['em_finance'] = df_assets['em_finance'].replace(dict_relabel['em_finance'])  
-    df_assets['developed_un'] = df_assets['developed_un'].replace(dict_relabel['developed_un'])  
+    df_assets =  relabel_regions(df_assets)
 
     total_emissions = df_assets['emissions_quantity'].sum()
     total_assets = df_assets['asset_id'].nunique()
