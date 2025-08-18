@@ -106,6 +106,17 @@ def map_region_condition(region_selection):
             'column_value': region_selection
         }
     
+def relabel_regions(df):
+    dict_relabel = {
+        'unfccc_annex': {True: 'Annex1', False: 'Non-Annex1'},
+        'em_finance': {True: 'Emerging Markets', False: 'Developed Markets'},
+        'developed_un': {True: 'Global North', False: 'Global South'}
+    }
+    for col, mapping in dict_relabel.items():
+        if col in df.columns:
+            df[col] = df[col].replace(mapping)
+    return df 
+    
 
 def format_number_short(n):
     if abs(n) >= 1_000_000_000:
