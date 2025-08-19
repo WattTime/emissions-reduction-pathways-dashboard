@@ -183,7 +183,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         df = df.reset_index()
 
         df['activity_cum'] = df['activity'].cumsum()
-        df['color'] = 'red'
+
         df['color'] = df[choice_color].map(dict_color[choice_color])
 
     new_row = []
@@ -330,13 +330,44 @@ def show_abatement_curve():
 
     annual_asset_path = CONFIG['annual_asset_path']
 
-    # Filter subsector selection using Streamlit widget
-    subsector_col, group_col, color_col, year_col = st.columns(4)
+    # add drop-down options for filtering data
+    sector_col, subsector_col, gas_col, year_col = st.columns(4)
+
+    with sector_col:
+        selected_sector= st.selectbox(
+            "Sector",
+            options=['manufacturing'],
+            disabled=True
+        )
 
     with subsector_col:
-        selected_subsector= st.selectbox(
+        selected_subsector = st.selectbox(
             "Subsector",
             options=['iron-and-steel', 'aluminum', 'solid-waste-disposal', 'electricity-generation']
+        )
+
+    with gas_col:
+        selected_gas = st.selectbox(
+            "Gas",
+            options=['co2e_100yr', 'ch4'],
+            disabled=True
+        )
+
+    with year_col:
+        selected_year = st.selectbox(
+            "Year",
+            options=[2024],
+            disabled=True
+
+        )
+
+    metric_col, group_col, color_col, year_col_2 = st.columns(4)
+
+    with metric_col:
+        selected_metric= st.selectbox(
+            "Metric",
+            options=['emissions_factor'],
+            disabled=True
         )
 
     with group_col:
@@ -351,10 +382,10 @@ def show_abatement_curve():
             options=['unfccc_annex', 'em_finance', 'continent', 'developed_un', 'sector']
         )
 
-    with year_col:
-        selected_year = st.selectbox(
+    with year_col_2:
+        selected_year_2 = st.selectbox(
             "Year",
-            options=[2024],
+            options=[2023],
             disabled=True
 
         )
