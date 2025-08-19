@@ -251,7 +251,6 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
                     )
 
     # Add custom legend items (invisible markers) for each color in the color field
-    dict_color_reverse = {v: k for k, v in dict_color[choice_color].items()}
     for color_label, color_value in dict_color[choice_color].items():
         fig.add_trace(go.Scatter(
             x=[None], y=[None],  # Invisible data point (None)
