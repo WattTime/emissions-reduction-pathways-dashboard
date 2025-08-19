@@ -6,6 +6,7 @@ CONFIG = {
     "percentile_path": "data/static/ct_percentile_40sectors_moer_stat_industrial_20250729.parquet",
     "annual_asset_path": "data/asset_annual_emissions/chunk_*.parquet",
     "city_path": "data/emissions_reduction/city_emissions.parquet",
+    "gadm_0_path": "data/emissions_reduction/gadm_0_emissions.parquet",
     "gadm_1_path": "data/emissions_reduction/gadm_1_emissions.parquet",
     "gadm_2_path": "data/emissions_reduction/gadm_2_emissions.parquet",
     "region_options": [
