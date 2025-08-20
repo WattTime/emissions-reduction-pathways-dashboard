@@ -14,6 +14,11 @@ import calendar
 from collections import defaultdict
 import sys
 import os
+
+os.getcwd()
+main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data'))
+test = pd.read_parquet(main_path + '/asset_annual_emissions/chunk_1.parquet')
+
 # utils_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'utils'))
 # main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 # if main_path not in sys.path:
@@ -84,52 +89,33 @@ dict_color['background'] = {
 
 dict_lines = {}
 
-dict_lines['electricity-generation'] = {
-    #MOER
-    # 'more biomass above': 1.5,
-    # '50th percentile': 0.63,
-    # '10th percentile': 0.42,
-    # 'renewables': 0.10,
+# power
+dict_lines['electricity-generation'] = {}
 
-    #Average ef
-    # '50th percentile': 0.58,
-    # '10th percentile': 0.1,
-}
+# waste
+dict_lines['solid-waste-disposal'] = {'more landfills above': 3}
 
-dict_lines['iron-and-steel'] = {
-    #MOER
-    # '50th percentile': 0.69,
-    # '10th percentile': 0.43,
+# manufacturing
+dict_lines['aluminum'] = {}
+dict_lines['cement'] = {}
+dict_lines['chemicals'] = {}
+dict_lines['food-beverage-tobacco'] = {'more facilities above': 0.00021}
+dict_lines['glass'] = {}
+dict_lines['iron-and-steel'] = {}
+dict_lines['lime'] = {}
+dict_lines['other-chemicals'] = {}
+dict_lines['other-manufacturing'] = {}
+dict_lines['other-metals'] = {}
+dict_lines['petrochemical-steam-cracking'] = {}
+dict_lines['pulp-and-paper'] = {}
+dict_lines['textiles-leather-apparel'] = {}
+dict_lines['wood-and-wood-products'] = {}
 
-    #Average of
-    # '50th percentile': 0.58,
-    # '10th percentile': 0.37,
-}
 
-dict_lines['solid-waste-disposal'] = {
-    'more landfills above': 3,
-    # '50th percentile': 1.24,
-    # '10th percentile': 0.69,
-    # 'covered landfills': 0.01,
-}
+# transportation
+dict_lines['road-transportation'] = {}
 
-dict_lines['road-transportation'] = {
-#     'Motorbike': 0.0000465,
-#     'Hybrid': 0.000118,
-#     'Sedan': 0.000155,
-#     'Truck': 0.000221,
-#     'Pickup': 0.000268,
-}
-
-dict_lines['aluminum'] = {
-#     'Motorbike': 0.0000465,
-#     'Hybrid': 0.000118,
-#     'Sedan': 0.000155,
-#     'Truck': 0.000221,
-#     'Pickup': 0.000268,
-}
-
-def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, cond={}):
+def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, selected_assets, cond={}):
     #Setup
     cond0 = {
         'label': True,
@@ -151,6 +137,8 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
 
     # *** Remove data for easy viewing ***
     if choice_group == 'asset':
+        hover_id = 'asset_id'
+        hover_name = 'asset_name'
         if sector1 in ['solid-waste-disposal']:
             df = df.loc[df['emissions_factor']<=3,:]
         elif sector1 in ['electricity-generation']:
@@ -166,11 +154,21 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         df[choice_color] = df[choice_color].apply(lambda x: False if pd.isna(x)==True else x)
         df['color'] = df[choice_color].map(dict_color[choice_color])
 
-    elif choice_group in ['country', 'BA']:
+    elif choice_group in ['country', 'balancing_authority_region']:
         if choice_group == 'country':
-            fds_key = [choice_color] + ['iso3_country','country_name','sector','subsector']
+            hover_id = 'country_name'
+            hover_name = 'country_name'
+            if choice_color == 'sector':
+                fds_key = ['iso3_country','country_name','sector','subsector']
+            else:
+                fds_key = [choice_color] + ['iso3_country','country_name','sector','subsector']
         else:
-            fds_key = [choice_color] + ['iso3_country','country_name',choice_group,'sector','subsector']
+            hover_name = 'balancing_authority_region'
+            hover_id = 'balancing_authority_region'
+            if choice_color == 'sector':
+                fds_key = ['iso3_country','country_name', choice_group, 'sector', 'subsector']
+            else:
+                fds_key = [choice_color] + ['iso3_country','country_name',choice_group,'sector','subsector']
 
         df = df.pivot_table(index=fds_key, values=['activity','emissions_quantity'], aggfunc='sum')
         df['emissions_factor'] = df['emissions_quantity']/df['activity']
@@ -183,7 +181,6 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
         df = df.reset_index()
 
         df['activity_cum'] = df['activity'].cumsum()
-
         df['color'] = df[choice_color].map(dict_color[choice_color])
 
     new_row = []
@@ -229,8 +226,12 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
             name=f"{df['iso3_country'][i]}",  # Name for the legend
             line_shape='hv',  # Step function line shape (horizontal-vertical)
             legendgroup=f"{color_value}",  # Grouping by color
-            showlegend=False  # Show legend entry for each segment
-        ))
+            showlegend=False,  # Show legend entry for each segment
+            hoverinfo="text",
+            hovertext=f"{df['country_name'][i]}<br><i>{df[hover_id][i]}</i><br>Activity: {round(df['activity'][i], 2)}<br>EF: {round(df['emissions_factor'][i], 3)}",
+            hoverlabel=dict(
+                bgcolor="white",
+                font=dict(color=color_value, size=14))))
 
         # Add annotation for the shaded area with a line pointing to the area
         if cond['label']:
@@ -250,6 +251,41 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, c
                         align="center",  # Align the text in the center
                     )
 
+    selected_df = df[df[hover_name].isin(selected_assets)].copy()
+    
+    if choice_group == 'asset':
+        highlight_hover_text = [
+            f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:.2f}<br>EF: {ef:.3f}"
+            for country, hover_val, hover_val2, activity, ef in zip(
+                selected_df['country_name'], 
+                selected_df[hover_id], 
+                selected_df[hover_name],
+                selected_df['activity'], 
+                selected_df['emissions_factor']
+                )
+            ]
+    else:
+        highlight_hover_text = [
+        f"{country}<br><i>{hover_val}</i><br>Activity: {activity:.2f}<br>EF: {ef:.3f}"
+        for country, hover_val, activity, ef in zip(
+            selected_df['country_name'], 
+            selected_df[hover_name],
+            selected_df['activity'], 
+            selected_df['emissions_factor']
+            )
+        ]
+    fig.add_trace(go.Scatter(
+        x=selected_df['activity_cum'],
+        y=selected_df['emissions_factor'],
+        mode='markers+text',
+        marker=dict(size=12, color='red', symbol='circle'),
+        name="Selected Assets",
+        hoverinfo='text',
+        hovertext=highlight_hover_text,
+        hoverlabel=dict(
+            bgcolor="white",
+            font=dict(color='red', size=14))
+    ))
     # Add custom legend items (invisible markers) for each color in the color field
     for color_label, color_value in dict_color[choice_color].items():
         fig.add_trace(go.Scatter(
@@ -336,14 +372,20 @@ def show_abatement_curve():
     with sector_col:
         selected_sector= st.selectbox(
             "Sector",
-            options=['manufacturing'],
-            disabled=True
+            options=['manufacturing', 'power', 'waste']
         )
 
     with subsector_col:
+        subsector_options = {
+            'manufacturing': ['aluminum', 'cement', 'chemicals', 'food-beverage-tobacco', 'glass', 'iron-and-steel', 
+                              'lime', 'other-chemicals', 'other-manufacturing', 'other-metals', 'petrochemical-steam-cracking', 
+                              'pulp-and-paper', 'textiles-leather-apparel'],
+            'power': ['electricity-generation'],
+            'waste': ['solid-waste-disposal']
+        }
         selected_subsector = st.selectbox(
             "Subsector",
-            options=['iron-and-steel', 'aluminum', 'solid-waste-disposal', 'electricity-generation']
+            options=subsector_options[selected_sector]
         )
 
     with gas_col:
@@ -361,34 +403,6 @@ def show_abatement_curve():
 
         )
 
-    metric_col, group_col, color_col, year_col_2 = st.columns(4)
-
-    with metric_col:
-        selected_metric= st.selectbox(
-            "Metric",
-            options=['emissions_factor'],
-            disabled=True
-        )
-
-    with group_col:
-        selected_group = st.selectbox(
-            "Group type",
-            options=["asset", "country", "BA"]
-        )
-
-    with color_col:
-        selected_color = st.selectbox(
-            "Color group",
-            options=['unfccc_annex', 'em_finance', 'continent', 'developed_un', 'sector']
-        )
-
-    with year_col_2:
-        selected_year_2 = st.selectbox(
-            "Year",
-            options=[2023],
-            disabled=True
-
-        )
 
     con = duckdb.connect()
 
@@ -403,14 +417,53 @@ def show_abatement_curve():
     #cond = {'sort_order': [True, True], 'label_limit': 0, 'label_distance': 0.0015}
 
     df_assets = con.execute(query_assets).df()
+    df_assets = df_assets.drop_duplicates(['asset_id'])
     df_assets['emissions_factor'] = df_assets['emissions_quantity'] / df_assets['activity']
     df_assets =  relabel_regions(df_assets)
 
     total_emissions = df_assets['emissions_quantity'].sum()
     total_assets = df_assets['asset_id'].nunique()
 
+    metric_col, group_col, color_col, asset_col = st.columns(4)
+
+    with metric_col:
+        selected_metric= st.selectbox(
+            "Metric",
+            options=['emissions_factor'],
+            disabled=True
+        )
+
+    with group_col:
+        if selected_subsector == 'electricity-generation':
+            group_options = ["country", "balancing_authority_region"]
+        else:
+            group_options= ["asset", "country"]
+        selected_group = st.selectbox(
+            "Group type",
+            options=group_options
+        )
+
+    with color_col:
+        selected_color = st.selectbox(
+            "Color group",
+            options=['unfccc_annex', 'em_finance', 'continent', 'developed_un', 'sector']
+        )
+
+    with asset_col:
+        if selected_group == 'asset':
+            asset_options = 'asset_name'
+        elif selected_group == 'country':
+            asset_options = 'country_name'
+        else:
+            asset_options = 'balancing_authority_region'
+        selected_assets = st.multiselect(
+            "Assets to highlight",
+            options=df_assets[asset_options].unique(),
+            default=[]
+        )
+
     # Call your function
-    fig = plot_stairs(df_assets, selected_group, selected_color, dict_color, dict_lines)
+    fig = plot_stairs(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets)
 
         # ---------- Title ----------
     
@@ -458,14 +511,17 @@ def show_abatement_curve():
         f"The chart below shows the potential impact of all opportunities, ranked by emissions reductions per "
         f"kilowatt-hour of renewable energy produced."
     )
-    
+
     summary_solution = {
         'iron-and-steel': iron_and_steel,
         'aluminum': aluminum, 
         'solid-waste-disposal': solid_waste_disposal, 
         'electricity-generation': electricity_generation}
     
-    summary_text = (f"{summary_solution[selected_subsector]}")
+    if selected_subsector not in ['iron-and-steel', 'solid-waste-disposal', 'electricity-generation']:
+        summary_text = ('TBD')
+    else:
+        summary_text = (f"{summary_solution[selected_subsector]}")
 
     # display text
     st.markdown(
