@@ -6,3 +6,5 @@ __pycache__/
 venv/
 test
 old_data/
+asset_annual_emissions_moer.parquet
+asset_annual_emissions.parquet
