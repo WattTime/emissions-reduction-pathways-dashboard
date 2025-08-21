@@ -15,9 +15,9 @@ from collections import defaultdict
 import sys
 import os
 
-os.getcwd()
-main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data'))
-test = pd.read_parquet(main_path + '/asset_annual_emissions/chunk_1.parquet')
+# # os.getcwd()
+# main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data'))
+# test = pd.read_parquet(main_path + '/emissions_reduction/gadm_2_emissions.parquet')
 
 # utils_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'utils'))
 # main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -26,6 +26,7 @@ test = pd.read_parquet(main_path + '/asset_annual_emissions/chunk_1.parquet')
 # if utils_path not in sys.path:
 #     sys.path.append(utils_path)
 
+from utils.utils import bordered_metric
 # from config import CONFIG
 # from utils import (format_dropdown_options, 
 #                          map_region_condition, 
@@ -203,7 +204,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
         y=[df['emissions_factor'][1], df['emissions_factor'][1]],  # From 0 to the second emissions factor (row 1) and back to 0
         fill='tozeroy',  # Fill the area under the line (this is the key)
         fillcolor=f'{df["color"][1]}',  # Use the color of row 1 for the shading
-        line=dict(color=f'{df["color"][1]}', width=2),  # Line color for the shading (row 1)
+        line=dict(color=f'{df["color"][1]}', width=0),  # Line color for the shading (row 1)
         mode='lines',  # Lines to connect the points
         name=f"{df['iso3_country'][1]}",  # Name for the first point (row 1)
         line_shape='hv',  # Step function line shape (horizontal-vertical)
@@ -214,6 +215,10 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
     list_label, count_label = [], 0
     ax_x_max = df['activity_cum'].max() 
     num_max = len(df)
+    y_min = df['emissions_factor'].min()
+    y_max = df['emissions_factor'].max()
+    y_offset = (y_max - y_min) * 0.03
+
     for i in range(2,len(df)):
         color_value = df['color'][i]  # Get the color from the color_variable
         fig.add_trace(go.Scatter(
@@ -233,23 +238,23 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
                 bgcolor="white",
                 font=dict(color=color_value, size=14))))
 
-        # Add annotation for the shaded area with a line pointing to the area
-        if cond['label']:
-            count_label += df['activity'][i]
-            if df['activity'][i] / ax_x_max >= cond['label_distance']:
-                if (i <= num_max*(1-cond['label_limit'])) and (df['country_name'][i] not in list_label) and (count_label/ax_x_max >= cond['label_distance']*cond['label_distance_scalar']):
-                    count_label = 0
-                    list_label += [df['country_name'][i]]
-                    fig.add_annotation(
-                        x=df['activity_cum'][i-1] + (df['activity_cum'][i]-df['activity_cum'][i-1])/2,  # Position the annotation at the x-value of the end of the shaded area
-                        y=df['emissions_factor'][i]*1.01,  # Position it slightly above the maximum y-value of the shaded area
-                        text='<br>'.join(df['country_name'][i].split(' ')),  # Replace with your desired text
-                        showarrow=True,  # Show an arrow pointing to the shaded area
-                        arrowhead=1,  # Customize the arrow's appearance
-                        ax=0,  # Set the x distance for the arrow line (zero for no offset)
-                        font=dict(size=12, color="#444546"),  # Customize the annotation text style
-                        align="center",  # Align the text in the center
-                    )
+        # # Add annotation for the shaded area with a line pointing to the area
+        # if cond['label']:
+        #     count_label += df['activity'][i]
+        #     if df['activity'][i] / ax_x_max >= cond['label_distance']:
+        #         if (i <= num_max*(1-cond['label_limit'])) and (df['country_name'][i] not in list_label) and (count_label/ax_x_max >= cond['label_distance']*cond['label_distance_scalar']):
+        #             count_label = 0
+        #             list_label += [df['country_name'][i]]
+        #             fig.add_annotation(
+        #                 x=df['activity_cum'][i-1] + (df['activity_cum'][i]-df['activity_cum'][i-1])/2,  # Position the annotation at the x-value of the end of the shaded area
+        #                 y=df['emissions_factor'][i]*1.01,  # Position it slightly above the maximum y-value of the shaded area
+        #                 text='<br>'.join(df['country_name'][i].split(' ')),  # Replace with your desired text
+        #                 showarrow=True,  # Show an arrow pointing to the shaded area
+        #                 arrowhead=1,  # Customize the arrow's appearance
+        #                 ax=0,  # Set the x distance for the arrow line (zero for no offset)
+        #                 font=dict(size=12, color="#444546"),  # Customize the annotation text style
+        #                 align="center",  # Align the text in the center
+        #             )
 
     selected_df = df[df[hover_name].isin(selected_assets)].copy()
     
@@ -268,23 +273,33 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
         highlight_hover_text = [
         f"{country}<br><i>{hover_val}</i><br>Activity: {activity:.2f}<br>EF: {ef:.3f}"
         for country, hover_val, activity, ef in zip(
-            selected_df['country_name'], 
+            selected_df['iso3_country'], 
             selected_df[hover_name],
             selected_df['activity'], 
             selected_df['emissions_factor']
             )
         ]
     fig.add_trace(go.Scatter(
-        x=selected_df['activity_cum'],
-        y=selected_df['emissions_factor'],
-        mode='markers+text',
-        marker=dict(size=12, color='red', symbol='circle'),
+        x=selected_df['activity_cum'] - selected_df['activity'] / 2,
+        y=selected_df['emissions_factor'] + y_offset,
+        mode='markers',
+        marker=dict(size=12, color='#A94442', symbol='triangle-down'),
         name="Selected Assets",
         hoverinfo='text',
         hovertext=highlight_hover_text,
         hoverlabel=dict(
             bgcolor="white",
-            font=dict(color='red', size=14))
+            font=dict(color='#A94442', size=14))
+    ))
+    fig.add_trace(go.Scatter(
+        x=selected_df['activity_cum'] - selected_df['activity'] / 2,
+        y=selected_df['emissions_factor'] + y_offset * 1.5,
+        mode='text',
+        hoverinfo=None,
+        text=selected_df[hover_name],
+        textposition="top center",
+        textfont=dict(size=14, color="#A94442"),
+        showlegend=False
     ))
     # Add custom legend items (invisible markers) for each color in the color field
     for color_label, color_value in dict_color[choice_color].items():
@@ -302,13 +317,13 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
         yaxis_title=f"emissions factor (t of CO2e per {activity_unit if 'yaxis_title' not in cond else cond['yaxis_title']})",
         showlegend=True,  # Show legend
         legend=dict(
-            x=0,  # X position (0 is the left edge)
+            x=0.9,  # X position (0 is the left edge)
             y=1,  # Y position (1 is the top edge)
-            xanchor='left',  # Anchors the legend on the left side
+            xanchor='right', 
             yanchor='top',  # Anchors the legend at the top side
         ),
         plot_bgcolor='rgba(0,0,0,0)',  # Transparent background
-        margin=dict(l=50, r=50, t=50, b=50),  # Adjust margins
+        margin=dict(l=50, r=50, t=20, b=50),  # Adjust margins
 
         xaxis=dict(
             showgrid=True,  # Show grid lines on the x-axis
@@ -322,9 +337,9 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
             zeroline=True,  # Hide the x-axis zero line (optional)
             zerolinecolor='lightgrey',
             gridcolor='lightgrey',  # Set grid line color to light grey
-            range=[0, round(max(df['emissions_factor']), 4) if max(df['emissions_factor'])<1 else math.ceil(max(df['emissions_factor']))],  # Adjust the y-axis range
+            range=[0, round(df['emissions_factor'].quantile(0.95) * 1.1, 4) if max(df['emissions_factor'])<1 else math.ceil(df['emissions_factor'].quantile(0.95) * 1.1)],  # Adjust the y-axis range
         ),
-        height=600
+        height=700
     
     )
 
@@ -365,6 +380,9 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
 def show_abatement_curve():
 
     annual_asset_path = CONFIG['annual_asset_path']
+    gadm_0_path = CONFIG['gadm_0_path']
+    gadm_1_path = CONFIG['gadm_1_path']
+    gadm_2_path = CONFIG['gadm_2_path']
 
     # add drop-down options for filtering data
     sector_col, subsector_col, gas_col, year_col = st.columns(4)
@@ -407,11 +425,31 @@ def show_abatement_curve():
     con = duckdb.connect()
 
     query_assets = f'''
-            SELECT *
-            FROM '{annual_asset_path}' ae
-            WHERE 
-                subsector = '{selected_subsector}'
-                AND year = {selected_year}
+        SELECT
+            ae.year,
+            ae.asset_id,
+            ae.asset_name,
+            ae.iso3_country,
+            ae.country_name,
+            ae.balancing_authority_region,
+            ae.continent,
+            ae.eu,
+            ae.oecd,
+            ae.unfccc_annex,
+            ae.developed_un,
+            ae.em_finance,
+            ae.sector,
+            ae.subsector,
+            ae.gadm_1,
+            ae.gadm_2,
+            ae.activity_units,
+            ae.capacity,
+            ae.activity,
+            ae.emissions_quantity
+        FROM '{annual_asset_path}' ae
+        WHERE 
+            subsector = '{selected_subsector}'
+            AND year = {selected_year}
         '''
     
     #cond = {'sort_order': [True, True], 'label_limit': 0, 'label_distance': 0.0015}
@@ -420,6 +458,34 @@ def show_abatement_curve():
     df_assets = df_assets.drop_duplicates(['asset_id'])
     df_assets['emissions_factor'] = df_assets['emissions_quantity'] / df_assets['activity']
     df_assets =  relabel_regions(df_assets)
+
+    query_gadm_0 = f'''
+        SELECT DISTINCT
+            gid AS gid_0,
+            iso3_country
+        FROM '{gadm_0_path}'
+        '''
+    df_gadm_0 = con.execute(query_gadm_0).df()
+
+    query_gadm_1 = f'''
+        SELECT DISTINCT
+            gid AS gid_1,
+            gadm_id AS gadm_1,
+            gadm_1_corrected_name AS gadm_1_name
+        FROM '{gadm_1_path}'
+        '''
+    df_gadm_1 = con.execute(query_gadm_1).df()
+
+    query_gadm_2 = f'''
+        SELECT DISTINCT
+            gid AS gid_2,
+            gadm_2_id AS gadm_2,
+            gadm_2_corrected_name AS gadm_2_name
+        FROM '{gadm_2_path}'
+        '''
+    df_gadm_2 = con.execute(query_gadm_2).df()
+
+    df_assets = df_assets.merge(df_gadm_0, how='left', on='iso3_country').merge(df_gadm_1, how='left', on='gadm_1').merge(df_gadm_2, how='left', on='gadm_2')
 
     total_emissions = df_assets['emissions_quantity'].sum()
     total_assets = df_assets['asset_id'].nunique()
@@ -519,7 +585,7 @@ def show_abatement_curve():
         'electricity-generation': electricity_generation}
     
     if selected_subsector not in ['iron-and-steel', 'solid-waste-disposal', 'electricity-generation']:
-        summary_text = ('TBD')
+        summary_text = ('Description coming soon')
     else:
         summary_text = (f"{summary_solution[selected_subsector]}")
 
@@ -535,10 +601,27 @@ def show_abatement_curve():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    ef_max = round(df_assets['emissions_factor'].max(), 3)
+    ef_min = round(df_assets['emissions_factor'].min(), 3)
+    ef_avg = round(df_assets['emissions_factor'].median(), 3)
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1:
+        bordered_metric("Selected Subsector", selected_subsector)
+    with col2:
+        bordered_metric("Selected Group", selected_group)
+    with col3:
+        bordered_metric("Average Emissions Factor", ef_avg)
+    with col4:
+        bordered_metric("Lowest Emissions Factor", ef_min, value_color='green')
+    with col5:
+        bordered_metric("Highest Emissions Factor", ef_max, value_color='red')
+
     st.markdown(
         f"""
-        <div style="text-align:left; font-size:24px; font-weight:600; margin-top:10px;">
-            Climate TRACE: {selected_subsector} ({selected_year})
+        <div style="text-align:left; font-size:24px; margin-top:10px;">
+            <b>Climate TRACE ({selected_year})</b> {selected_subsector} - {len(df_assets)} total assets
         </div>
         """,
         unsafe_allow_html=True
@@ -546,3 +629,22 @@ def show_abatement_curve():
 
     # Display in Streamlit
     st.plotly_chart(fig, use_container_width=True)
+
+    df_table = df_assets.copy()
+    df_table['asset_url'] = "https://climatetrace.org/explore/#admin=&gas=co2e&year=2024&timeframe=100&sector=&asset=" + df_table['asset_id'].astype(str)
+    df_table = df_table[['asset_name', 'asset_url', 'country_name', 'gadm_1_name', 'gadm_2_name', 'emissions_quantity', 'emissions_factor']]
+    df_table = df_table.sort_values('emissions_quantity', ascending=False).reset_index(drop=True)
+    st.markdown(f"### {selected_subsector} assets")
+
+    row_height = 35  # pixels per row (adjust as needed)
+    num_rows = 20
+    table_height = row_height * num_rows + 35  # extra for header
+
+    st.dataframe(
+        df_table,
+        use_container_width=True,
+        column_config={
+            "asset_url": st.column_config.LinkColumn(display_text="asset_name")
+        },
+        height=table_height
+    )
