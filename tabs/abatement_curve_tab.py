@@ -26,7 +26,7 @@ import os
 # if utils_path not in sys.path:
 #     sys.path.append(utils_path)
 
-from utils.utils import bordered_metric
+from utils.utils import bordered_metric_2
 # from config import CONFIG
 # from utils import (format_dropdown_options, 
 #                          map_region_condition, 
@@ -60,12 +60,12 @@ dict_color['asset_type'] = {
     'Refinery': '#FBBA1A'
 }
 dict_color['continent'] = {
-    'Europe': '#03A0E3',  # blue
-    'North America': '#9554FF',  # purple
-    'Asia': '#E8516C',  # red
-    'Africa': '#407076',  # brown
-    'South America': '#0BCF42',  # green
-    'Oceania': '#FF6F42',  # orange
+    'Europe': '#4878A8',  # blue
+    'North America': '#6D4DA8',  # purple
+    'Asia': '#FBBA1A',  # red
+    'Africa': '#C75B39',  # brown
+    'South America': '#4C956C',  # green
+    'Oceania': '#91643A',  # orange
     # 'Antarctica': '#B6B4B4',  # orange    
     # 'World': '#B6B4B4'  # grey
 }
@@ -260,7 +260,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
     
     if choice_group == 'asset':
         highlight_hover_text = [
-            f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:.2f}<br>EF: {ef:.3f}"
+            f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
             for country, hover_val, hover_val2, activity, ef in zip(
                 selected_df['country_name'], 
                 selected_df[hover_id], 
@@ -271,7 +271,7 @@ def plot_stairs(gdf_asset, choice_group, choice_color, dict_color, dict_lines, s
             ]
     else:
         highlight_hover_text = [
-        f"{country}<br><i>{hover_val}</i><br>Activity: {activity:.2f}<br>EF: {ef:.3f}"
+        f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
         for country, hover_val, activity, ef in zip(
             selected_df['iso3_country'], 
             selected_df[hover_name],
@@ -487,6 +487,7 @@ def show_abatement_curve():
 
     df_assets = df_assets.merge(df_gadm_0, how='left', on='iso3_country').merge(df_gadm_1, how='left', on='gadm_1').merge(df_gadm_2, how='left', on='gadm_2')
 
+    activity_unit = df_assets['activity_units'][0]
     total_emissions = df_assets['emissions_quantity'].sum()
     total_assets = df_assets['asset_id'].nunique()
 
@@ -601,27 +602,43 @@ def show_abatement_curve():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    ef_max = round(df_assets['emissions_factor'].max(), 3)
-    ef_min = round(df_assets['emissions_factor'].min(), 3)
-    ef_avg = round(df_assets['emissions_factor'].median(), 3)
+    df_assets['id_str'] = df_assets['asset_id'].astype(str) + " (" + df_assets['iso3_country'] + ")"
 
+    ef_max = df_assets['emissions_factor'].max()
+    ef_max_asset = df_assets[df_assets['emissions_factor'] == ef_max]['id_str'].unique()
+    if len(ef_max_asset) > 3:
+        ef_max_asset = ef_max_asset[:3]
+        ef_max_asset = ', '.join(map(str, ef_max_asset)) + ', etc.'
+    else:
+        ef_max_asset = ', '.join(map(str, ef_max_asset))  
+    ef_max = round(ef_max, 3)
+    ef_min = df_assets['emissions_factor'].min()
+    ef_min_asset = df_assets[df_assets['emissions_factor'] == ef_min]['id_str'].unique()
+    if len(ef_min_asset) > 3:
+        ef_min_asset = ef_min_asset[:3]
+        ef_min_asset = ', '.join(map(str, ef_min_asset)) + ', etc.'
+    else:
+        ef_min_asset = ', '.join(map(str, ef_min_asset))
+    ef_min = round(ef_min, 3)
+    ef_avg = round(df_assets['emissions_factor'].median(), 3)
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
-        bordered_metric("Selected Subsector", selected_subsector)
+        bordered_metric_2("Selected Subsector", selected_subsector)
     with col2:
-        bordered_metric("Selected Group", selected_group)
+        bordered_metric_2("Selected Group", selected_group)
     with col3:
-        bordered_metric("Average Emissions Factor", ef_avg)
+        bordered_metric_2("Average Emissions Factor", f"{ef_avg}t of CO<sub>2</sub>e<br><span style='font-size:0.6em;'>per {activity_unit}</span>")
     with col4:
-        bordered_metric("Lowest Emissions Factor", ef_min, value_color='green')
+        bordered_metric_2("Lowest Emissions Factor", f"{ef_min}<br><span style='font-size:0.6em;'>{ef_min_asset}</span>", value_color='green')
     with col5:
-        bordered_metric("Highest Emissions Factor", ef_max, value_color='red')
+        bordered_metric_2("Highest Emissions Factor", f"{ef_max}<br><span style='font-size:0.6em;'>{ef_max_asset}</span>", value_color='red')
+
 
     st.markdown(
         f"""
         <div style="text-align:left; font-size:24px; margin-top:10px;">
-            <b>Climate TRACE ({selected_year})</b> {selected_subsector} - {len(df_assets)} total assets
+            <b>Climate TRACE ({selected_year})</b> {selected_subsector} - {round(len(df_assets)):,} total assets
         </div>
         """,
         unsafe_allow_html=True
@@ -634,6 +651,7 @@ def show_abatement_curve():
     df_table['asset_url'] = "https://climatetrace.org/explore/#admin=&gas=co2e&year=2024&timeframe=100&sector=&asset=" + df_table['asset_id'].astype(str)
     df_table = df_table[['asset_name', 'asset_url', 'country_name', 'gadm_1_name', 'gadm_2_name', 'emissions_quantity', 'emissions_factor']]
     df_table = df_table.sort_values('emissions_quantity', ascending=False).reset_index(drop=True)
+    df_table['emissions_quantity'] = df_table['emissions_quantity'].round().apply(lambda x: f"{int(x):,}")
     st.markdown(f"### {selected_subsector} assets")
 
     row_height = 35  # pixels per row (adjust as needed)
