@@ -215,6 +215,72 @@ def bordered_metric(
 
     st.markdown(card_html, unsafe_allow_html=True)
 
+def bordered_metric_2(
+    label, 
+    value, 
+    tooltip_enabled=False, 
+    total_options_in_scope=None, 
+    tooltip_value=None, 
+    value_color=None
+):
+    # Format the display value
+    if isinstance(value, list):
+        if total_options_in_scope and len(value) == total_options_in_scope:
+            display_val = f"All ({len(value)})"
+            tooltip = ", ".join(value)
+        else:
+            tooltip = ", ".join(value)
+            total_char_len = sum(len(v) for v in value)
+            if total_char_len > 19:
+                display_val = value[0] + f" +{len(value) - 1} more"
+            else:
+                display_val = ", ".join(value[:2])
+                if len(value) > 2:
+                    display_val += f" +{len(value) - 2} more"
+    else:
+        display_val = str(value)
+        tooltip = tooltip_value if tooltip_value else display_val
+
+    # Build style dynamically
+    base_style = (
+        "flex-grow: 1; "
+        "font-size: 2em; font-weight: bold; padding: 0 4px; "
+        "display: flex; flex-direction: column; align-items: center; justify-content: center; "
+        "line-height: 0.7;"
+    )
+
+    if value_color:
+        base_style += f" color: {value_color};"
+
+    card_html = f"""
+        <div style="
+            border: 1px solid #999;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+        ">
+            <div style="
+                font-weight: 600;
+                text-align: left;
+                margin-bottom: -18px;
+                margin-top: -4px;
+                padding: 0;
+            ">
+                {label}
+            </div>
+            <div style="{base_style}">
+                <div style="text-align: center; white-space: normal;">
+                    {display_val}
+                </div>
+            </div>
+        </div>
+    """
+
+    st.markdown(card_html, unsafe_allow_html=True)
+
 
 def map_percentile_col(selected_percentile):
 
