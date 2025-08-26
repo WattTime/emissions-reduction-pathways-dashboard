@@ -15,9 +15,9 @@ from collections import defaultdict
 import sys
 import os
 
-# # os.getcwd()
+# # # os.getcwd()
 # main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data'))
-# test = pd.read_parquet(main_path + '/emissions_reduction/gadm_2_emissions.parquet')
+# test = pd.read_parquet(main_path + '/asset_annual_emissions/chunk_1.parquet')
 
 # utils_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'utils'))
 # main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
