@@ -534,7 +534,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
             else:
                 fds_key = [choice_color] + ['iso3_country', 'country_name', choice_group, 'sector', 'subsector']
 
-        df = df.pivot_table(index=fds_key, values=['activity','emissions_quantity', 'emissions_reduced_at_asset', 'net_reduced_emissions'], aggfunc='sum')
+        df = df.pivot_table(index=fds_key, values=['activity','emissions_quantity', 'reduced_emissions', 'net_reduced_emissions'], aggfunc='sum')
         df['emissions_factor'] = df['emissions_quantity']/df['activity']
 
         df = df.sort_values([selected_metric, 'activity'], ascending=cond['sort_order'])
@@ -571,7 +571,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
     if selected_metric == 'emissions_factor':
         y_axis_title = f'emissions factor (t of CO2e per {activity_unit if 'yaxis_title' not in cond else cond['yaxis_title']})'
         hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>EF: {round(df[selected_metric][0], 3)}',
-    elif selected_metric == 'emissions_reduced_at_asset':
+    elif selected_metric == 'reduced_emissions':
         y_axis_title = 'emissions reduction potential (t of CO2e)'
         hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>Reduction Potential: {round(df[selected_metric][0], 0)}',
     elif selected_metric == 'net_reduced_emissions':

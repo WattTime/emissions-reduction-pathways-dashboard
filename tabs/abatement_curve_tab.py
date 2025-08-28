@@ -99,7 +99,7 @@ def show_abatement_curve():
             SUM(ae.activity) AS activity,
             SUM(ae.capacity) AS capacity,
             SUM(ae.emissions_quantity) AS emissions_quantity,
-            ae.emissions_reduced_at_asset,
+            ae.emissions_reduced_at_asset AS reduced_emissions,
             ae.total_emissions_reduced_per_year AS net_reduced_emissions
         FROM '{annual_asset_path}' ae
         WHERE 
@@ -174,7 +174,7 @@ def show_abatement_curve():
 
     with metric_col:
         if num_ers > 0:
-            metric_options = ['emissions_factor', 'emissions_reduced_at_asset', 'net_reduced_emissions']
+            metric_options = ['emissions_factor', 'reduced_emissions', 'net_reduced_emissions']
         else:
             metric_options = ['emissions_factor']
         selected_metric= st.selectbox(
@@ -315,7 +315,7 @@ def show_abatement_curve():
         ef_avg_title = 'Average Emissions Factor'
         ef_avg_text = f"{ef_avg}t of CO<sub>2</sub>e<br><span style='font-size:0.6em;'>per {activity_unit}</span>"
     
-    elif selected_metric == 'emissions_reduced_at_asset':
+    elif selected_metric == 'reduced_emissions':
         metric_unit = 'emissions reduction potential'
         if len(ef_max_asset) > 1:
             ef_max_asset = ef_max_asset[:1]
@@ -398,7 +398,7 @@ def show_abatement_curve():
     ers_table = df_assets.copy()
     ers_table = ers_table.groupby(['strategy_name', 'strategy_description', 'mechanism']).agg(
         assets_impacted=('asset_id', 'count'),
-        total_reduced_emissions=('emissions_reduced_at_asset', 'sum'),
+        total_reduced_emissions=('reduced_emissions', 'sum'),
         total_net_reduced_emissions=('net_reduced_emissions', 'sum')).reset_index()
     ers_table = ers_table.sort_values(['total_net_reduced_emissions'], ascending=False)
     ers_table['total_reduced_emissions'] = ers_table['total_reduced_emissions'].round()
@@ -425,11 +425,11 @@ def show_abatement_curve():
     # filter + format table
     df_table = df_table.sort_values('emissions_quantity', ascending=False).reset_index(drop=True)
     df_table['emissions_quantity (t CO2e)'] = df_table['emissions_quantity'].round()
-    df_table['emissions_reduced_at_asset (t CO2e)'] = df_table['emissions_reduced_at_asset'].fillna(0)
-    df_table['emissions_reduced_at_asset (t CO2e)'] = df_table['emissions_reduced_at_asset (t CO2e)'].round()
+    df_table['reduced_emissions (t CO2e)'] = df_table['reduced_emissions'].fillna(0)
+    df_table['reduced_emissions (t CO2e)'] = df_table['reduced_emissions (t CO2e)'].round()
     df_table['net_reduced_emissions (t CO2e)'] = df_table['net_reduced_emissions'].fillna(0)
     df_table['net_reduced_emissions (t CO2e)'] = df_table['net_reduced_emissions (t CO2e)'].round()
-    df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'emissions_reduced_at_asset (t CO2e)', 'net_reduced_emissions (t CO2e)']]
+    df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduced_emissions (t CO2e)', 'net_reduced_emissions (t CO2e)']]
     
     st.markdown(f"### {selected_subsector} assets")
 
@@ -444,7 +444,7 @@ def show_abatement_curve():
             "gadm_1_url": st.column_config.LinkColumn("state / province", display_text=r'admin=(.+?)--'),
             "gadm_2_url": st.column_config.LinkColumn("county / municipality / district", display_text=r'admin=(.+?)--'),
             "emissions_quantity (t CO2e)": st.column_config.NumberColumn(format="localized"),
-            "emissions_reduced_at_asset (t CO2e)": st.column_config.NumberColumn(format="localized"),
+            "reduced_emissions (t CO2e)": st.column_config.NumberColumn(format="localized"),
             "net_reduced_emissions (t CO2e)": st.column_config.NumberColumn(format="localized")}
     )
 
