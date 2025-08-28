@@ -1,8 +1,11 @@
 import pandas as pd
 import io
 import streamlit as st
+import urllib.parse
 import html
 import numpy as np
+import math
+import plotly.graph_objects as go
 # import duckdb
 # from config import CONFIG
 
@@ -215,7 +218,7 @@ def bordered_metric(
 
     st.markdown(card_html, unsafe_allow_html=True)
 
-def bordered_metric_2(
+def bordered_metric_abatement(
     label, 
     value, 
     tooltip_enabled=False, 
@@ -408,3 +411,365 @@ def reset_city():
 def reset_state_and_county():
     st.session_state["state_province_selector"] = "-- Select State / Province --"
     st.session_state["county_district_selector"] = "-- Select County / District --"
+
+def define_color_lines():
+
+    # dictionary for asset colors
+    dict_color = {}
+    dict_color['unfccc_annex'] = {
+        'Annex1': '#407076',
+        'Non-Annex1': '#FBBA1A'
+    }
+    dict_color['em_finance'] = {
+        'Developed Markets': '#407076',
+        'Emerging Markets': '#FBBA1A'
+    }
+    dict_color['developed_un'] = {
+        'Global North': '#407076',
+        'Global South': '#FBBA1A'
+    }
+    dict_color['asset_type'] = {
+        'Smelting': '#407076',
+        'Refinery': '#FBBA1A'
+    }
+    dict_color['continent'] = {
+        'Europe': '#4878A8',
+        'North America': '#6D4DA8',
+        'Asia': '#FBBA1A',
+        'Africa': '#C75B39',
+        'South America': '#4C956C',
+        'Oceania': '#91643A',
+        # 'Antarctica': '#B6B4B4', 
+        # 'World': '#B6B4B4'
+    }
+    dict_color['sector'] = {
+        'forestry': '#E8516C',
+        'manufacturing': '#9554FF',
+        'fossil-fuel-operation': '#FF6F42',
+        'waste': '#BBD421',
+        'transportation': '#FBBA1A',
+        'agriculture':  '#0BCF42',
+        'buildings':  '#03A0E3',
+        'fluorinated-gas': '#B6B4B4',
+        'mineral': '#4380F5',
+        'power': '#407076'
+    }
+    dict_color['background'] = {
+        'background0': '#EBE6E6',
+        'background1': '#D9D4D4',
+        'background2': '#556063',
+        'background3': '#444546',
+    }
+
+    # dictionary for lines / outlier values
+    dict_lines = {}
+    # power
+    dict_lines['electricity-generation'] = {}
+    # waste
+    dict_lines['solid-waste-disposal'] = {'more landfills above': 3}
+    # manufacturing
+    dict_lines['aluminum'] = {}
+    dict_lines['cement'] = {}
+    dict_lines['chemicals'] = {}
+    dict_lines['food-beverage-tobacco'] = {'more facilities above': 0.00021}
+    dict_lines['glass'] = {}
+    dict_lines['iron-and-steel'] = {}
+    dict_lines['lime'] = {}
+    dict_lines['other-chemicals'] = {}
+    dict_lines['other-manufacturing'] = {}
+    dict_lines['other-metals'] = {}
+    dict_lines['petrochemical-steam-cracking'] = {}
+    dict_lines['pulp-and-paper'] = {}
+    dict_lines['textiles-leather-apparel'] = {}
+    dict_lines['wood-and-wood-products'] = {}
+    # transportation
+    dict_lines['road-transportation'] = {}
+
+    return dict_color, dict_lines
+
+
+def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict_lines, selected_assets, cond={}):
+
+    # set up conditions
+    cond0 = {
+        'label': True,
+        'label_distance': 0.003,
+        'label_distance_scalar': 20,
+        'label_limit': 0.2,
+        'sort': ['emissions_factor','activity'],
+        'sort_order': [False,True],
+        'xaxis': ['activity'],  #not sured as yet
+        'yaxis': ['emissions_factor'],   #not used as yet
+    }
+    for k,v in cond0.items():
+        if k not in cond: cond[k] = v
+
+    # identify key information
+    df = gdf_asset.copy()
+    activity_unit = df['activity_units'][0]
+    sector1 = df.subsector.unique()[0]
+
+    # update chart based off asset/country/BA - cumulative sum activity
+    if choice_group == 'asset':
+        hover_id = 'asset_id'
+        hover_name = 'asset_name'
+        df = df.sort_values(cond['sort'], ascending=cond['sort_order'])
+        df = df.reset_index(drop=True)
+        df['activity_cum'] = df['activity'].cumsum()
+        df[choice_color] = df[choice_color].apply(lambda x: False if pd.isna(x)==True else x)
+        df['color'] = df[choice_color].map(dict_color[choice_color])
+
+    elif choice_group in ['country', 'balancing_authority_region']:
+        if choice_group == 'country':
+            hover_id = 'country_name'
+            hover_name = 'country_name'
+            if choice_color == 'sector':
+                fds_key = ['iso3_country','country_name','sector','subsector']
+            else:
+                fds_key = [choice_color] + ['iso3_country','country_name','sector','subsector']
+        else:
+            hover_name = 'balancing_authority_region'
+            hover_id = 'balancing_authority_region'
+            if choice_color == 'sector':
+                fds_key = ['iso3_country','country_name', choice_group, 'sector', 'subsector']
+            else:
+                fds_key = [choice_color] + ['iso3_country','country_name',choice_group,'sector','subsector']
+
+        df = df.pivot_table(index=fds_key, values=['activity','emissions_quantity'], aggfunc='sum')
+        df['emissions_factor'] = df['emissions_quantity']/df['activity']
+        df = df.sort_values(cond['sort'], ascending=cond['sort_order'])
+        df = df.reset_index()
+        df['activity_cum'] = df['activity'].cumsum()
+        df['color'] = df[choice_color].map(dict_color[choice_color])
+
+    new_row = []
+    for col in df.columns:
+        if col == 'color':
+            new_row.append(df.loc[0,'color'])
+        else:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                new_row.append(0)  # For numeric columns, use 0
+            else:
+                new_row.append(np.nan)  # For non-numeric columns, use NaN
+
+    df = pd.concat([pd.DataFrame([new_row], columns=df.columns), df], ignore_index=True)
+
+    # create the fig
+    fig = go.Figure()
+
+    # calculate metrics for formatting
+    x_min, x_max = min(df['activity_cum']), max(df['activity_cum'])
+    y_min = df['emissions_factor'].min()
+    y_max = df['emissions_factor'].max()
+    y_offset = (y_max - y_min) * 0.03
+
+    # create abatement curve, filling in area underneath for each asset iteratively
+    fig.add_trace(go.Scatter(
+        x=[0, df['activity_cum'][1]],
+        y=[df['emissions_factor'][1], df['emissions_factor'][1]], 
+        fill='tozeroy',
+        fillcolor=f'{df['color'][1]}',
+        line=dict(color=f'{df['color'][1]}', width=0),
+        mode='lines',
+        name=f'{df['iso3_country'][1]}',
+        line_shape='hv',
+        legendgroup=f'{df['color'][1]}',
+        showlegend=False,
+        hoverinfo='text',
+        hovertext=f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>EF: {round(df['emissions_factor'][0], 3)}',
+        hoverlabel=dict(
+            bgcolor='white',
+            font=dict(color=df['color'][1], size=14))))
+    
+    for i in range(2,len(df)):
+        color_value = df['color'][i] 
+        fig.add_trace(go.Scatter(
+            x=[df['activity_cum'][i-1], df['activity_cum'][i]],
+            y=[df['emissions_factor'][i-1], df['emissions_factor'][i]], 
+            fill='tozeroy', 
+            fillcolor=f'{color_value}',
+            line=dict(color=f'{color_value}', width=2),
+            mode='lines',
+            name=f'{df['iso3_country'][i]}',
+            line_shape='hv',
+            legendgroup=f'{color_value}',
+            showlegend=False,
+            hoverinfo='text',
+            hovertext=f'{df['country_name'][i]}<br><i>{df[hover_id][i]}</i><br>Activity: {round(df['activity'][i], 2)}<br>EF: {round(df['emissions_factor'][i], 3)}',
+            hoverlabel=dict(
+                bgcolor='white',
+                font=dict(color=color_value, size=14))))
+
+    # add selected assets to the chart
+    selected_df = df[df[hover_name].isin(selected_assets)].copy()
+    
+    if choice_group == 'asset':
+        highlight_hover_text = [
+            f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
+            for country, hover_val, hover_val2, activity, ef in zip(
+                selected_df['country_name'], 
+                selected_df[hover_id], 
+                selected_df[hover_name],
+                selected_df['activity'], 
+                selected_df['emissions_factor']
+                )
+            ]
+    else:
+        highlight_hover_text = [
+        f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
+        for country, hover_val, activity, ef in zip(
+            selected_df['iso3_country'], 
+            selected_df[hover_name],
+            selected_df['activity'], 
+            selected_df['emissions_factor']
+            )
+        ]
+    
+    fig.add_trace(go.Scatter(
+        x=selected_df['activity_cum'] - selected_df['activity'] / 2,
+        y=selected_df['emissions_factor'] + y_offset,
+        mode='markers',
+        marker=dict(size=12, color='#A94442', symbol='triangle-down'),
+        name="Selected Assets",
+        hoverinfo='text',
+        hovertext=highlight_hover_text,
+        hoverlabel=dict(
+            bgcolor="white",
+            font=dict(color='#A94442', size=14))))
+    
+    fig.add_trace(go.Scatter(
+        x=selected_df['activity_cum'] - selected_df['activity'] / 2,
+        y=selected_df['emissions_factor'] + y_offset * 1.5,
+        mode='text',
+        hoverinfo=None,
+        text=selected_df[hover_name],
+        textposition="top center",
+        textfont=dict(size=14, color="#A94442"),
+        showlegend=False))
+    
+    # add custom legend items
+    for color_label, color_value in dict_color[choice_color].items():
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode='markers',
+            marker=dict(color=color_value, size=10),
+            name=f'{color_label}', 
+            showlegend=True
+        ))
+
+    # format plot layout
+    fig.update_layout(
+        xaxis_title=f'activity ({activity_unit if 'xaxis_title' not in cond else cond['xaxis_title']})',
+        yaxis_title=f'emissions factor (t of CO2e per {activity_unit if 'yaxis_title' not in cond else cond['yaxis_title']})',
+        showlegend=True,
+        legend=dict(x=0.9, y=1, xanchor='right', yanchor='top'),
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=50, r=50, t=20, b=50),
+        xaxis=dict(
+            showgrid=True,
+            zeroline=True,
+            zerolinecolor='lightgrey',
+            gridcolor='lightgrey',
+            range=[0, math.ceil(max(df['activity_cum']))*1.1]),
+        yaxis=dict(
+            showgrid=True,
+            zeroline=True,
+            zerolinecolor='lightgrey',
+            gridcolor='lightgrey',
+            range=[0, round(df['emissions_factor'].quantile(0.95) * 1.1, 4) if max(df['emissions_factor'])<1 else math.ceil(df['emissions_factor'].quantile(0.95) * 1.1)]),
+        height=700
+    
+    )
+    # add line to the plot if overflowing information
+    for line_name, line_y in dict_lines[sector1].items():
+        fig.add_shape(
+            type='line',
+            x0=x_min, x1=x_max,
+            y0=line_y, y1=line_y,
+            line=dict(color='#444546', width=1, dash='dash'),
+        )
+        ax_y_max = max(df['emissions_factor'])
+        text_y = line_y
+        if line_y + 0.015 * ax_y_max > ax_y_max:
+            text_y = line_y - 0.015 * ax_y_max
+        elif line_y - 0.015 * ax_y_max < 0:
+            text_y = line_y + 0.015 * ax_y_max
+        fig.add_annotation(
+            x=x_max + 1, 
+            y=text_y,
+            text=line_name,
+            showarrow=False,
+            font=dict(size=12, color='#444546'),
+            align='left',
+            xanchor='left',
+            yanchor='middle',
+            xref='x',
+            yref='y'
+        )
+
+    return fig
+
+def make_asset_url(row):
+    url_root = 'https://climatetrace.org/explore/#'
+    admin_value = f"{row['asset_name']}"
+    params = {
+        'admin': admin_value,
+        'gas': 'co2e',
+        'year': '2024',
+        'timeframe': '100',
+        'sector': '',
+        'asset': str(row['asset_id'])
+    }
+    encoded = urllib.parse.urlencode(params, safe=':,._()-')
+    full_url = f"{url_root}{encoded}"
+    return full_url
+
+def make_country_url(row):
+    url_root = 'https://climatetrace.org/explore/#'
+    admin_value = f"{row['country_name']} ({row['iso3_country']}):1:{row['iso3_country']}:country"
+    params = {
+        'admin': admin_value,
+        'gas': 'co2e',
+        'year': '2024',
+        'timeframe': '100',
+        'sector': '',
+        'asset': ''
+    }
+    encoded = urllib.parse.urlencode(params, safe=':,._()-')
+    full_url = f"{url_root}{encoded}"
+
+    return full_url
+
+def make_state_url(row):
+    url_root = 'https://climatetrace.org/explore/#'
+    if pd.isna(row['gadm_1']):
+        return np.nan
+    admin_value = f"{row['gadm_1_name']}-- {row['iso3_country']}:{row['gid_1']}:{row['gadm_1']}:state"
+    params = {
+        'admin': admin_value,
+        'gas': 'co2e',
+        'year': '2024',
+        'timeframe': '100',
+        'sector': '',
+        'asset': ''
+    }
+    encoded = urllib.parse.urlencode(params, safe=':,._()-')
+    full_url = f"{url_root}{encoded}"
+    return full_url
+
+def make_county_url(row):
+    url_root = 'https://climatetrace.org/explore/#'
+    if pd.isna(row['gadm_2']):
+        return np.nan
+    admin_value = f"{row['gadm_2_name']}-- {row['gadm_1_name']}-- {row['iso3_country']}:{row['gid_2']}:{row['gadm_2']}:county"
+    params = {
+        'admin': admin_value,
+        'gas': 'co2e',
+        'year': '2024',
+        'timeframe': '100',
+        'sector': '',
+        'asset': ''
+    }
+    encoded = urllib.parse.urlencode(params, safe=':,._()-')
+    full_url = f"{url_root}{encoded}"
+    return full_url
