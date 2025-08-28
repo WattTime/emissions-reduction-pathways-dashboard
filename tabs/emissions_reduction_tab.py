@@ -11,20 +11,11 @@ from calendar import month_name
 import calendar
 from collections import defaultdict
 from config import CONFIG
-from utils.utils import (format_dropdown_options, 
-                         map_region_condition, 
-                         format_number_short, 
-                         create_excel_file, 
-                         bordered_metric, 
-                         map_percentile_col,
-                         is_country,
-                         reset_city,
-                         reset_state_and_county)
+from utils.utils import *
+from utils.queries import *
 
 
 def show_emissions_reduction_plan():
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     # configure data paths and region options for querying
     annual_asset_path = CONFIG['annual_asset_path']
@@ -43,8 +34,70 @@ def show_emissions_reduction_plan():
         ).fetchall()
     )
 
+    selected_year = 2024
+
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    radio_col, year_col, download_col = st.columns([10, 1, 1])
+
+    with radio_col:
+        reduction_method = st.radio(
+            "Select emissions reduction method:",
+            [
+                "Climate TRACE Solutions",
+                "Percentile Benchmarking"
+            ],
+            horizontal=True,
+            index=0,
+            help=(
+                "**Climate TRACE Solutions**: Uses asset-specific emissions reduction strategies "
+                "developed by Climate TRACE sector leads.\n\n"
+                "**Percentile Benchmarking**: Compares asset emissions factors to similar assets based on percentiles, "
+                "highlighting general reduction potential through benchmarking."
+            )
+        )
+
+    with year_col:
+        st.text_input(
+            label="", 
+            value=" Data Year:  2024", 
+            disabled=True, 
+            key="static_year"
+        )
+
+    with download_col:
+        st.markdown(
+            """
+            <style>
+            .stDownloadButton button {
+                white-space: nowrap;
+                margin-left: -8px;
+            }
+            .custom-download-space {
+                padding-top: 28px;
+            }
+            </style>
+            <div class="custom-download-space"></div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        download_placeholder = st.empty()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if reduction_method == "Climate TRACE Solutions":
+        disable_percentile_dropdowns = True
+    else:
+        disable_percentile_dropdowns = False
+
+    
+
     # --------- DROPDOWN ROW 1 ----------
+
     country_dropdown, state_province_dropdown, county_district_dropdown, city_dropdown = st.columns(4)
+
     with country_dropdown:
         
         selected_region = st.selectbox(
@@ -182,124 +235,94 @@ def show_emissions_reduction_plan():
             )
 
 
-    # ---------- DROPDOWN ROW 2 ---------
-    benchmarking_group_dropdown, percentile_dropdown, proportion_scale_bar, year_dropdown  = st.columns(4)
+    if disable_percentile_dropdowns is False:
+        # ---------- DROPDOWN ROW 2 ---------
+        benchmarking_group_dropdown, percentile_dropdown, proportion_scale_bar  = st.columns(3)
 
-    with benchmarking_group_dropdown:    
-        benchmarking_options = [
-            'Global',
-            'Country'
-        ]
+        with benchmarking_group_dropdown:    
+            benchmarking_options = [
+                'Global',
+                'Country'
+            ]
 
-        benchmarking_help = (
-            "This selection enables users to establish baseline emissions benchmarks by selecting either all assets "
-            "within a sector globally or only those within a specific country. By comparing assets to these benchmarks, "
-            "users can identify emissions reduction opportunities at both the national and global levels."
-        )
-
-        if is_country(selected_region):
-            selected_benchmark = st.selectbox(
-                "Benchmarking Group",
-                benchmarking_options,
-                help=benchmarking_help,
-                key="benchmarking_selector"
+            benchmarking_help = (
+                "This selection enables users to establish baseline emissions benchmarks by selecting either all assets "
+                "within a sector globally or only those within a specific country. By comparing assets to these benchmarks, "
+                "users can identify emissions reduction opportunities at both the national and global levels."
             )
 
-        else:
-            selected_benchmark = st.selectbox(
-                "Benchmarking Group",
-                "Global",
-                disabled=True,
-                help=benchmarking_help,
-                key="benchmarking_selector"
+            if is_country(selected_region):
+                selected_benchmark = st.selectbox(
+                    "Benchmarking Group",
+                    benchmarking_options,
+                    help=benchmarking_help,
+                    disabled=disable_percentile_dropdowns,
+                    key="benchmarking_selector"
+                )
+
+            else:
+                selected_benchmark = st.selectbox(
+                    "Benchmarking Group",
+                    "Global",
+                    disabled=True,
+                    help=benchmarking_help,
+                    key="benchmarking_selector"
+                )
+
+            if selected_benchmark == "Global":
+                benchmark_join = "AND pct.iso3_country = 'all' "
+            else:
+                benchmark_join = "AND ae.iso3_country = pct.iso3_country "
+
+        with percentile_dropdown:
+            percentile_options = [
+                # '0th',
+                '10th',
+                '20th',
+                '30th',
+                '40th',
+                '50th',
+                '60th',
+                '70th',
+                '80th',
+                '90th',
+                '100th'
+            ]
+
+            percentile_help = (
+                "Benchmarks are set using emissions factor percentiles within the selected Benchmarking Group. For example, "
+                "the 10th percentile reflects the average emissions factor of the top-performing 10% of assets, while the "
+                "50th percentile represents the midpoint range (40–50% asset bucket)."
             )
 
-        if selected_benchmark == "Global":
-            benchmark_join = "AND pct.iso3_country = 'all' "
-        else:
-            benchmark_join = "AND ae.iso3_country = pct.iso3_country "
-
-    with percentile_dropdown:
-        percentile_options = [
-            # '0th',
-            '10th',
-            '20th',
-            '30th',
-            '40th',
-            '50th',
-            '60th',
-            '70th',
-            '80th',
-            '90th',
-            '100th'
-        ]
-
-        percentile_help = (
-            "Benchmarks are set using emissions factor percentiles within the selected Benchmarking Group. For example, "
-            "the 10th percentile reflects the average emissions factor of the top-performing 10% of assets, while the "
-            "50th percentile represents the midpoint range (40–50% asset bucket)."
-        )
-
-        selected_percentile = st.selectbox(
-            "Emission Reduction Target (Percentile)",
-            percentile_options,
-            help=percentile_help,
-            key="percentile_selector"
-        )
-
-        percentile_col = map_percentile_col(selected_percentile)
-
-    with proportion_scale_bar:
-        proportion_help = (
-            "This input defines the fraction of each asset’s emissions reduction potential to include in the plan. "
-            "Assets across all sectors are ranked by reduction potential, and the specified proportion is applied to "
-            "each asset’s opportunity. For example, if an asset has a reduction potential of 100 tCO₂e and the proportion "
-            "is set to 80%, only 80 tCO₂e is counted toward the plan."
-        )
-
-        selected_proportion = st.slider(
-            label="Proportion",
-            min_value=0,
-            max_value=100,
-            value=100,
-            help=proportion_help,
-            step=1,
-            format="%d%%"
-        )
-
-
-    with year_dropdown:
-        year_col, download_col = st.columns([2, 1])  # Adjust ratio as needed
-
-        with year_col:
-            # Only displaying 2024 data for now, will update to query
-            year_options = [2024]  # Needs to be a list for selectbox
-            selected_year = st.selectbox(
-                "Year",
-                year_options,
-                disabled=True,
-                key="year_selector"
+            selected_percentile = st.selectbox(
+                "Emission Reduction Target (Percentile)",
+                percentile_options,
+                help=percentile_help,
+                disabled=disable_percentile_dropdowns,
+                key="percentile_selector"
             )
 
-        with download_col:
-            st.markdown(
-                """
-                <style>
-                .stDownloadButton button {
-                    white-space: nowrap;
-                    margin-left: -8px;
-                }
-                .custom-download-space {
-                    padding-top: 28px;
-                }
-                </style>
-                <div class="custom-download-space"></div>
-                """,
-                unsafe_allow_html=True
+            percentile_col = map_percentile_col(selected_percentile)
+
+        with proportion_scale_bar:
+            proportion_help = (
+                "This input defines the fraction of each asset’s emissions reduction potential to include in the plan. "
+                "Assets across all sectors are ranked by reduction potential, and the specified proportion is applied to "
+                "each asset’s opportunity. For example, if an asset has a reduction potential of 100 tCO₂e and the proportion "
+                "is set to 80%, only 80 tCO₂e is counted toward the plan."
             )
 
-            download_placeholder = st.empty()
-
+            selected_proportion = st.slider(
+                label="Proportion",
+                min_value=0,
+                max_value=100,
+                value=100,
+                help=proportion_help,
+                disabled=disable_percentile_dropdowns,
+                step=1,
+                format="%d%%"
+            )
     
     # --------- Calculate Display Text Based on Selections ----------
     if selected_city and not selected_city.startswith("--") and selected_region != "Global":
@@ -397,19 +420,7 @@ def show_emissions_reduction_plan():
         where_sql = f"WHERE year = {selected_year}"
     
 
-    query_country = f"""
-        SELECT 
-            year,
-            sector,
-            SUM(emissions_quantity) AS country_emissions_quantity
-        FROM '{table}'
-        
-        {where_sql}
-        
-        GROUP BY year, sector
-        
-        ORDER BY sector
-    """
+    query_country = build_country_sql(table, where_sql)
 
     df_pie = con.execute(query_country).df()
     df_pie["emissions_quantity"] = df_pie["country_emissions_quantity"]
@@ -431,7 +442,7 @@ def show_emissions_reduction_plan():
 
     # --------------------------- Visualize Sector Pie ---------------------------
     sector_color_map = {
-        "agriculture": "#E8516C",                  # from --color-agriculture
+        "agriculture": "#E8516C",                 # from --color-agriculture
         "buildings": "#03A0E3",                   # from --color-buildings = --color-seablue
         "fluorinated-gases": "#B6B4B4",           # from --color-fluorinated-gases
         "forestry-and-land-use": "#779608",       # from --color-forestry-and-land-use
