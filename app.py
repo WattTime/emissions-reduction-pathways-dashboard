@@ -41,14 +41,14 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Monthly Trends", "Abatement Curve"])
+tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Abatement Curve", "Monthly Trends"])
 
 with tab1:
     show_emissions_reduction_plan()
     # pass
 with tab2:
-    show_monthly_dashboard()
+    show_abatement_curve()
 
 with tab3:
-    show_abatement_curve()
+    show_monthly_dashboard()
 
