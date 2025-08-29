@@ -875,13 +875,27 @@ def show_emissions_reduction_plan():
 
     asset_table_df = con.execute(asset_table_sql).df()
 
+    asset_table_df['asset_url'] = asset_table_df.apply(make_asset_url, axis=1)
+    asset_table_df['country_url'] = asset_table_df.apply(make_country_url, axis=1)
+    
+
     # Current (2024) Estimate
     asset_table_df["2024 Emissions (tCO2e)"] = asset_table_df["emissions_quantity"].apply(lambda x: f"{round(x):,}")
     asset_table_df["Asset Reduction Potential Per Year (tCO2e)"] = asset_table_df["emissions_reduction_potential"].apply(lambda x: f"{round(x):,}")
 
     if use_ct_ers is True:
+        asset_table_df = asset_table_df[['asset_url',
+                                         'country_url',
+                                         'sector',
+                                         'subsector',
+                                         'asset_type',
+                                         'strategy_name',
+                                         '2024 Emissions (tCO2e)',
+                                         'Asset Reduction Potential Per Year (tCO2e)',
+                                         'total_emissions_reduced_per_year']]
+        
         asset_table_df["Net Reduction Potential Per Year (tCO2e)"]  = asset_table_df["total_emissions_reduced_per_year"].apply(lambda x: f"{round(x):,}")
-        asset_table_df = asset_table_df.drop(columns=["emissions_quantity", "emissions_reduction_potential", "total_emissions_reduced_per_year"])
+        asset_table_df = asset_table_df.drop(columns=["total_emissions_reduced_per_year"])
         styled_df = asset_table_df.style.applymap(
         lambda val: "color: red", subset=["2024 Emissions (tCO2e)"]
             ).applymap(
@@ -889,7 +903,14 @@ def show_emissions_reduction_plan():
                                                     "Net Reduction Potential Per Year (tCO2e)"]
             )
     else:
-        asset_table_df = asset_table_df.drop(columns=["emissions_quantity", "emissions_reduction_potential"])
+        asset_table_df = asset_table_df[['asset_url',
+                                         'country_url',
+                                         'sector',
+                                         'subsector',
+                                         'asset_type',
+                                         '2024 Emissions (tCO2e)',
+                                         'Asset Reduction Potential Per Year (tCO2e)']]
+        
         styled_df = asset_table_df.style.applymap(
             lambda val: "color: red", subset=["2024 Emissions (tCO2e)"]
                 ).applymap(
@@ -905,7 +926,11 @@ def show_emissions_reduction_plan():
     st.dataframe(
         styled_df,
         use_container_width=True,
-        height=table_height
+        height=table_height,
+        column_config={
+            "asset_url": st.column_config.LinkColumn("asset_name", display_text=r"admin=([^&]+)"),
+            "country_url": st.column_config.LinkColumn("country_name", display_text=r"admin=([^:]+)")
+        }
     )
 
 
