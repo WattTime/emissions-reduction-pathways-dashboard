@@ -53,8 +53,10 @@ def show_emissions_reduction_plan():
             help=(
                 "**Climate TRACE Solutions**: Uses asset-specific emissions reduction strategies "
                 "developed by Climate TRACE sector leads.\n\n"
-                "**Percentile Benchmarking**: Compares asset emissions factors to similar assets based on percentiles, "
-                "highlighting general reduction potential through benchmarking."
+                "**Percentile Benchmarking**: Compares each asset’s emissions factor against " 
+                "similar assets within the same subsector. Results are shown as global "
+                "or country-level percentiles, helping identify how efficient or polluting an asset is relative "
+                "to its peers, and how much room there is for improvement."
             )
         )
 
