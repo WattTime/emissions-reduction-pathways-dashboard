@@ -568,8 +568,8 @@ def show_emissions_reduction_plan():
             disabled=True,
             help=(
                 "**Asset (Allocational) Reductions**: Emissions reduced directly at the asset where the solution is applied — "
-                "e.g., a blast furnace that shuts down shows reductions only at that steelmaking facility."
-                "**Net (Consequential) Reductions**: System-wide impact, accounting for emissions induced in other sectors.\n\n"
+                "e.g., a blast furnace that shuts down shows reductions only at that steelmaking facility.\n\n"
+                "**Net (Consequential) Reductions**: System-wide impact, accounting for emissions induced in other sectors."
                 "For example, switching from a blast furnace to an electric arc furnace reduces on-site emissions, but may increase electricity sector emissions — "
                 "net reductions reflect the total outcome across sectors."
             )
@@ -855,9 +855,11 @@ def show_emissions_reduction_plan():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ------------------------------- Asset Table ---------------------------------
-    
     if use_ct_ers is True:
-        pass
+        asset_table_sql = build_asset_reduction_sql(use_ct_ers=use_ct_ers,
+                                                    annual_asset_path=annual_asset_path,
+                                                    dropdown_join=dropdown_join,
+                                                    reduction_where_sql=reduction_where_sql)
     else:
         asset_table_sql = build_asset_reduction_sql(use_ct_ers=use_ct_ers,
                                                     percentile_col=percentile_col,
@@ -871,18 +873,26 @@ def show_emissions_reduction_plan():
 
     asset_table_df = con.execute(asset_table_sql).df()
 
-    # Current (2024) Estimated Emissions (tCO2e)
-    # Estimated Emissions Reduction Potential Per Year (tCO2e)
+    # Current (2024) Estimate
     asset_table_df["2024 Emissions (tCO2e)"] = asset_table_df["emissions_quantity"].apply(lambda x: f"{round(x):,}")
-    asset_table_df["Estimated Reduction Potential Per Year (tCO2e)"] = asset_table_df["emissions_reduction_potential"].apply(lambda x: f"{round(x):,}")  
+    asset_table_df["Asset Reduction Potential Per Year (tCO2e)"] = asset_table_df["emissions_reduction_potential"].apply(lambda x: f"{round(x):,}")
 
-    asset_table_df = asset_table_df.drop(columns=["emissions_quantity", "emissions_reduction_potential"])
-
-    styled_df = asset_table_df.style.applymap(
+    if use_ct_ers is True:
+        asset_table_df["Net Reduction Potential Per Year (tCO2e)"]  = asset_table_df["total_emissions_reduced_per_year"].apply(lambda x: f"{round(x):,}")
+        asset_table_df = asset_table_df.drop(columns=["emissions_quantity", "emissions_reduction_potential", "total_emissions_reduced_per_year"])
+        styled_df = asset_table_df.style.applymap(
         lambda val: "color: red", subset=["2024 Emissions (tCO2e)"]
             ).applymap(
-                lambda val: "color: green", subset=["Estimated Reduction Potential Per Year (tCO2e)"]
+                lambda val: "color: green", subset=["Asset Reduction Potential Per Year (tCO2e)",
+                                                    "Net Reduction Potential Per Year (tCO2e)"]
             )
+    else:
+        asset_table_df = asset_table_df.drop(columns=["emissions_quantity", "emissions_reduction_potential"])
+        styled_df = asset_table_df.style.applymap(
+            lambda val: "color: red", subset=["2024 Emissions (tCO2e)"]
+                ).applymap(
+                    lambda val: "color: green", subset=["Asset Reduction Potential Per Year (tCO2e)"]
+                )
 
     st.markdown("### Top 100 Assets by Annual Reduction Potential")
 
