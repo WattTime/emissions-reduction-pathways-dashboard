@@ -6,8 +6,8 @@ import numpy as np
 
 
 '''
-This function builds SQL for the pie chart on Reduction Opportunities tab. This will
-function the same regardless of whether the user has Climate TRACE Solutions or
+This builds SQL for the pie chart on Reduction Opportunities tab. This will
+behave the same regardless of whether the user has Climate TRACE Solutions or
 Percentile Benchmarking selected as their reduction method.
 
 Returns: country_sql
@@ -33,7 +33,13 @@ def build_country_sql(table, where_sql):
     return country_sql
 
 '''
+This builds SQL for the stacked bar chart Reduction Opportunities tab. This will
+dynamically pull in the correct data depending on the selected reduction method,
+which could be "Climate TRACE Solutions" or "Percentile Benchmarking"
 
+Returns: sector_reduction_sql_string
+
+Type: string (SQL)
 '''
 def build_sector_reduction_sql(use_ct_ers,
                                 annual_asset_path,
@@ -47,7 +53,6 @@ def build_sector_reduction_sql(use_ct_ers,
                             ):
     
     if use_ct_ers is True:
-
         if ers_reduction_col == "emissions_reduced_at_asset":
 
             sector_reduction_sql_string = f'''
@@ -62,13 +67,16 @@ def build_sector_reduction_sql(use_ct_ers,
                         , sum(emissions_quantity) as emissions_quantity
                         , {ers_reduction_col} as emissions_reduction_potential
 
-                    FROM '{annual_asset_path}'
+                    FROM '{annual_asset_path}' ae
+                    {dropdown_join}
 
-                    WHERE subsector not in ('non-residential-onsite-fuel-usage',
-                                            'residential-onsite-fuel-usage',
-                                            'oil-and-gas-production',
-                                            'oil-and-gas-transport'
-                                        )
+                    {reduction_where_sql}
+                        -- and subsector not in ('non-residential-onsite-fuel-usage',
+                        --                     'residential-onsite-fuel-usage',
+                        --                     'oil-and-gas-production',
+                        --                     'oil-and-gas-transport'
+                        --                 )
+
 
                     GROUP BY asset_id
                         , sector
@@ -79,7 +87,7 @@ def build_sector_reduction_sql(use_ct_ers,
                 GROUP BY sector
 
             '''
-            # print(sector_reduction_sql_string)
+            print(sector_reduction_sql_string)
         
         else:
             sector_reduction_sql_string = f'''
@@ -106,7 +114,9 @@ def build_sector_reduction_sql(use_ct_ers,
                                 FROM '{annual_asset_path}' aap
                                 LEFT JOIN sector_mapping
                                     on sector_mapping.subsector = aap.induced_sector_1
-                                WHERE induced_sector_1 IS NOT NULL
+                                {dropdown_join}
+
+                                {reduction_where_sql}
                             )  
 
                             group by sector
@@ -124,7 +134,9 @@ def build_sector_reduction_sql(use_ct_ers,
                                 FROM '{annual_asset_path}' aap
                                 LEFT JOIN sector_mapping
                                     on sector_mapping.subsector = aap.induced_sector_2
-                                WHERE induced_sector_2 IS NOT NULL
+                                {dropdown_join}
+
+                                {reduction_where_sql}
                             )  
 
                             group by sector
@@ -142,7 +154,9 @@ def build_sector_reduction_sql(use_ct_ers,
                                 FROM '{annual_asset_path}' aap
                                 LEFT JOIN sector_mapping
                                     on sector_mapping.subsector = aap.induced_sector_3
-                                WHERE induced_sector_3 IS NOT NULL
+                                {dropdown_join}
+
+                                {reduction_where_sql}
                             )  
 
                             group by sector
@@ -164,6 +178,9 @@ def build_sector_reduction_sql(use_ct_ers,
                             , emissions_reduced_at_asset
 
                         FROM '{annual_asset_path}'
+                        {dropdown_join}
+
+                        {reduction_where_sql}
 
                         GROUP BY asset_id
                             , sector
@@ -255,7 +272,13 @@ def build_sector_reduction_sql(use_ct_ers,
 
 
 '''
+Builds a query that inserts data into the 4th sentence within the 
+"A Possible Emissions Reduction Plan" text block on the Reduction 
+Opportunities tab.
 
+Returns: sentence_4_query
+
+Type: string (SQL)
 '''
 def build_sentence_4_sql(table, where_sql, include_sectors):
 
@@ -319,7 +342,13 @@ def build_sentence_4_sql(table, where_sql, include_sectors):
 
 
 '''
+Builds SQL query for the asset table at the bottom of the page. It will
+dynamically determine whether or not to use Climate TRACE Solutions, or
+the Percentile Benchmarking method based on user selection.
 
+Returns: asset_table_query
+
+Type: string (SQL)
 '''
 def build_asset_reduction_sql(use_ct_ers,
                                 annual_asset_path,
@@ -330,14 +359,42 @@ def build_asset_reduction_sql(use_ct_ers,
                                 selected_proportion=None,
                                 benchmark_join=None):
 
-    if use_ct_ers is True:
-        
-        asset_table_query = f"""
-            SELECT
+    if not reduction_where_sql:
+            reduction_where_sql = f"""Where lower(ae.asset_type) <> 'biomass'"""
 
-            FROM (
-                asset_name
-            )
+    if use_ct_ers is True:
+
+        asset_table_query = f"""
+            SELECT 
+                asset_name,
+                country_name,
+                sector,
+                subsector,
+                asset_type,
+                strategy_name,
+                SUM(emissions_quantity) AS emissions_quantity,
+                emissions_reduced_at_asset AS emissions_reduction_potential,
+                total_emissions_reduced_per_year AS total_emissions_reduced_per_year
+            
+            FROM '{annual_asset_path}' ae
+            {dropdown_join}
+
+            {reduction_where_sql}
+            
+            GROUP BY 
+                asset_name,
+                country_name,
+                sector,
+                subsector,
+                asset_type,
+                strategy_name,
+                emissions_reduced_at_asset,
+                total_emissions_reduced_per_year
+            
+            ORDER BY 
+                total_emissions_reduced_per_year DESC
+            
+            LIMIT 100
         """
     
     else:
@@ -399,7 +456,6 @@ def build_asset_reduction_sql(use_ct_ers,
                 {dropdown_join}
 
                 {reduction_where_sql}
-                    and lower(ae.asset_type) <> 'biomass'
                 
                 GROUP BY 
                     ae.asset_name,                
