@@ -365,8 +365,9 @@ def build_asset_reduction_sql(use_ct_ers,
     if use_ct_ers is True:
 
         asset_table_query = f"""
-            SELECT 
+            SELECT asset_id,
                 asset_name,
+                iso3_country,
                 country_name,
                 sector,
                 subsector,
@@ -381,8 +382,9 @@ def build_asset_reduction_sql(use_ct_ers,
 
             {reduction_where_sql}
             
-            GROUP BY 
+            GROUP BY asset_id,
                 asset_name,
+                iso3_country,
                 country_name,
                 sector,
                 subsector,
@@ -400,7 +402,9 @@ def build_asset_reduction_sql(use_ct_ers,
     else:
 
         asset_table_query = f"""
-            SELECT asset_name
+            SELECT asset_id 
+                , asset_name
+                , iso3_country
                 , country_name
                 , sector
                 , subsector
@@ -409,9 +413,10 @@ def build_asset_reduction_sql(use_ct_ers,
                 , emissions_reduction_potential
             
             FROM (
-                SELECT 
+                SELECT ae.asset_id,
                     ae.asset_name,
                     ae.asset_type,
+                    ae.iso3_country,
                     ae.country_name,
                     ae.sector,
                     ae.subsector,
@@ -457,8 +462,9 @@ def build_asset_reduction_sql(use_ct_ers,
 
                 {reduction_where_sql}
                 
-                GROUP BY 
-                    ae.asset_name,                
+                GROUP BY ae.asset_id,
+                    ae.asset_name,     
+                    ae.iso3_country,           
                     ae.country_name,
                     ae.sector,
                     ae.subsector,
