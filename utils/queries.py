@@ -87,7 +87,7 @@ def build_sector_reduction_sql(use_ct_ers,
                 GROUP BY sector
 
             '''
-            print(sector_reduction_sql_string)
+            # print(sector_reduction_sql_string)
         
         else:
             sector_reduction_sql_string = f'''
@@ -354,10 +354,18 @@ def build_asset_reduction_sql(use_ct_ers,
                                 annual_asset_path,
                                 dropdown_join,
                                 reduction_where_sql,
+                                sorting_preference,
                                 percentile_path=None,
                                 percentile_col=None,
                                 selected_proportion=None,
                                 benchmark_join=None):
+    
+    if sorting_preference == 'Net Reduction Potential':
+        sorting_col = 'total_emissions_reduced_per_year'
+    elif sorting_preference == 'Asset Reduction Potential':
+        sorting_col = 'emissions_reduction_potential'
+    elif sorting_preference == 'Asset Annual Emissions':
+        sorting_col = 'emissions_quantity'
 
     if not reduction_where_sql:
             reduction_where_sql = f"""Where lower(ae.asset_type) <> 'biomass'"""
@@ -374,8 +382,8 @@ def build_asset_reduction_sql(use_ct_ers,
                 asset_type,
                 strategy_name,
                 SUM(emissions_quantity) AS emissions_quantity,
-                emissions_reduced_at_asset AS emissions_reduction_potential,
-                total_emissions_reduced_per_year AS total_emissions_reduced_per_year
+                coalesce(emissions_reduced_at_asset,0) AS emissions_reduction_potential,
+                coalesce(total_emissions_reduced_per_year,0) AS total_emissions_reduced_per_year
             
             FROM '{annual_asset_path}' ae
             {dropdown_join}
@@ -390,11 +398,11 @@ def build_asset_reduction_sql(use_ct_ers,
                 subsector,
                 asset_type,
                 strategy_name,
-                emissions_reduced_at_asset,
-                total_emissions_reduced_per_year
+                coalesce(emissions_reduced_at_asset,0),
+                coalesce(total_emissions_reduced_per_year,0)
             
             ORDER BY 
-                total_emissions_reduced_per_year DESC
+                {sorting_col} DESC
             
             LIMIT 100
         """
@@ -472,9 +480,11 @@ def build_asset_reduction_sql(use_ct_ers,
                     pct.{percentile_col}
             ) assets
 
-            where rank <= 100
+            -- where rank <= 100
 
-            order by rank asc
+            order by {sorting_col} desc
+
+            limit 100
         """
     
     return asset_table_query
