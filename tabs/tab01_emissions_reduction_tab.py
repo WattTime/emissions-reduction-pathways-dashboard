@@ -857,12 +857,47 @@ def show_emissions_reduction_plan():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ------------------------------- Asset Table ---------------------------------
+    st.markdown("### Top 100 Assets by Annual Reduction Potential")
+
+    asset_sorting_help = ("**Net Reduction Potential:** Top 100 assets by net emissions reduction potential, "
+        "including emissions induced in other sectors from executing the respective reduction strategy.\n\n"
+        "**Asset Reduction Potential:** Top 100 assets by direct emissions reduction at the asset itself.\n\n"
+        "**Asset Annual Emissions:** Top 100 highest emitting assets by annual (2024) emissions.")
+
     if use_ct_ers is True:
+        sorting_options = [
+            "Net Reduction Potential",
+            "Asset Reduction Potential",
+            "Asset Annual Emissions"
+        ]
+
+        asset_sorting_preference = st.radio(
+            "Sorting Preference",
+            sorting_options, 
+            horizontal=True,
+            key="asset_sorting_preference",
+            help=asset_sorting_help
+        )
+
         asset_table_sql = build_asset_reduction_sql(use_ct_ers=use_ct_ers,
                                                     annual_asset_path=annual_asset_path,
                                                     dropdown_join=dropdown_join,
-                                                    reduction_where_sql=reduction_where_sql)
+                                                    reduction_where_sql=reduction_where_sql,
+                                                    sorting_preference=asset_sorting_preference)
     else:
+        sorting_options = [
+            "Asset Reduction Potential",
+            "Asset Annual Emissions"
+        ]
+
+        asset_sorting_preference = st.radio(
+            "Sorting Preference",
+            sorting_options,
+            horizontal=True,
+            key="asset_sorting_preference",
+            help=asset_sorting_help
+        )
+
         asset_table_sql = build_asset_reduction_sql(use_ct_ers=use_ct_ers,
                                                     percentile_col=percentile_col,
                                                     selected_proportion=selected_proportion,
@@ -870,10 +905,13 @@ def show_emissions_reduction_plan():
                                                     percentile_path=percentile_path,
                                                     benchmark_join=benchmark_join,
                                                     dropdown_join=dropdown_join,
-                                                    reduction_where_sql=reduction_where_sql
+                                                    reduction_where_sql=reduction_where_sql,
+                                                    sorting_preference=asset_sorting_preference
                                                     )
 
     asset_table_df = con.execute(asset_table_sql).df()
+
+    # print(asset_table_df)
 
     asset_table_df['asset_url'] = asset_table_df.apply(make_asset_url, axis=1)
     asset_table_df['country_url'] = asset_table_df.apply(make_country_url, axis=1)
@@ -881,7 +919,7 @@ def show_emissions_reduction_plan():
 
     # Current (2024) Estimate
     asset_table_df["2024 Emissions (tCO2e)"] = asset_table_df["emissions_quantity"].apply(lambda x: f"{round(x):,}")
-    asset_table_df["Asset Reduction Potential Per Year (tCO2e)"] = asset_table_df["emissions_reduction_potential"].apply(lambda x: f"{round(x):,}")
+    asset_table_df["Asset Reduction Potential Per Year (tCO2e)"] = asset_table_df["emissions_reduction_potential"].fillna(0).apply(lambda x: f"{round(x):,}")
 
     if use_ct_ers is True:
         asset_table_df = asset_table_df[['asset_url',
@@ -917,7 +955,7 @@ def show_emissions_reduction_plan():
                     lambda val: "color: green", subset=["Asset Reduction Potential Per Year (tCO2e)"]
                 )
 
-    st.markdown("### Top 100 Assets by Annual Reduction Potential")
+    
 
     row_height = 35  # pixels per row (adjust as needed)
     num_rows = 20
