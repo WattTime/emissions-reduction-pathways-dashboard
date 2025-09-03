@@ -4,10 +4,9 @@ import duckdb
 
 from config import CONFIG
 from utils.utils import get_release_version
-from tabs.monthly_dashboard_tab import show_monthly_dashboard
-from tabs.emissions_reduction_tab import show_emissions_reduction_plan
-from tabs.abatement_curve_tab import show_abatement_curve
-
+from tabs.tab01_emissions_reduction_tab import show_emissions_reduction_plan
+from tabs.tab02_abatement_curve_tab import show_abatement_curve
+from tabs.tab03_monthly_dashboard_tab import show_monthly_dashboard
 
 st.set_page_config(layout="wide")
 
