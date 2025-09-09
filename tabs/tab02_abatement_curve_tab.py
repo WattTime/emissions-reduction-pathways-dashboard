@@ -25,16 +25,10 @@ def show_abatement_curve():
     with sector_col:
         selected_sector= st.selectbox(
             "Sector",
-            options=['manufacturing', 'power', 'waste'])
+            options=['fossil-fuel-operations', 'manufacturing', 'mineral-extraction', 'power', 'waste'])
 
     with subsector_col:
-        subsector_options = {
-            'manufacturing': ['aluminum', 'cement', 'chemicals', 'food-beverage-tobacco', 'glass', 'iron-and-steel', 
-                              'lime', 'other-chemicals', 'other-manufacturing', 'other-metals', 'petrochemical-steam-cracking', 
-                              'pulp-and-paper', 'textiles-leather-apparel'],
-            'power': ['electricity-generation'],
-            'waste': ['solid-waste-disposal']
-        }
+        subsector_options = abatement_subsector_options
         selected_subsector = st.selectbox(
             "Subsector",
             options=subsector_options[selected_sector])
@@ -54,12 +48,22 @@ def show_abatement_curve():
     ##### QUERY DATA -------
     con = duckdb.connect()
 
+    # determine sector type
+    sector_type, sector_type_desc = return_sector_type(selected_sector)
+
     # find asset information for highlighting
-    query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
+    if sector_type == 'raster':
+        query_assets_filter = create_raster_filter_sql(annual_asset_path, gadm_0_path, selected_subsector, selected_year)
+    elif sector_type == 'asset':
+        query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
+
     df_assets_filter = con.execute(query_assets_filter).df()
     
     # query all assets using selected info and add gadm information
-    query_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
+    if sector_type == 'raster':
+        query_assets = find_sector_raster_sql(annual_asset_path, gadm_0_path, selected_subsector, selected_year)
+    elif sector_type == 'asset':
+        query_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
     df_assets = con.execute(query_assets).df()
     df_assets =  relabel_regions(df_assets)
     num_ers = df_assets['strategy_name'].nunique()
@@ -269,7 +273,10 @@ def show_abatement_curve():
     with select_subsector_col:
         bordered_metric_abatement("Selected Subsector", selected_subsector)
     with select_group_col:
-        bordered_metric_abatement("Selected Group", selected_group)
+        if sector_type == 'raster':
+            bordered_metric_abatement("Selected Group", sector_type_desc)
+        else:
+            bordered_metric_abatement("Selected Group", selected_group)
     with select_ef_avg_col:
         bordered_metric_abatement(ef_avg_title, ef_avg_text)
     with select_ef_min_col:
@@ -312,13 +319,17 @@ def show_abatement_curve():
     # create urls to link info to climate trace website
     df_table['asset_url'] = df_table.apply(make_asset_url, axis=1)
     df_table['country_url'] = df_table.apply(make_country_url, axis=1)
-    df_table['gadm_1_url'] = df_table.apply(make_state_url, axis=1)
-    df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
-    df_table['gadm_1_url'].fillna('', inplace=True)
-    df_table['gadm_2_url'].fillna('', inplace=True)
+    if sector_type == 'asset':
+        df_table['gadm_1_url'] = df_table.apply(make_state_url, axis=1)
+        df_table['gadm_1_url'].fillna('', inplace=True)
+        df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
+        df_table['gadm_2_url'].fillna('', inplace=True)
     # filter + format table
     df_table = df_table.sort_values('emissions_quantity', ascending=False).reset_index(drop=True)
-    df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduced_emissions (t CO2e)', 'net_reduced_emissions (t CO2e)']]
+    if sector_type == 'asset':
+        df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduced_emissions (t CO2e)', 'net_reduced_emissions (t CO2e)']]
+    else:
+        df_table = df_table[['asset_url', 'country_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduced_emissions (t CO2e)', 'net_reduced_emissions (t CO2e)']]
     
     st.markdown(f"### {selected_subsector} assets")
 
