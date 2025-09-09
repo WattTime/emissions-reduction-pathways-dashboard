@@ -3,9 +3,8 @@ import duckdb
 import re
 import pandas as pd
 from config import CONFIG
-from utils.utils import (relabel_regions, bordered_metric_abatement,
-                         define_color_lines, plot_abatement_curve,
-                         make_asset_url, make_country_url, make_state_url, make_county_url)
+from utils.utils import *
+from utils.queries import *
 
 def show_abatement_curve():
 
@@ -55,114 +54,15 @@ def show_abatement_curve():
     ##### QUERY DATA -------
     con = duckdb.connect()
 
-    # find information for highlighting
-    query_assets_filter = f'''
-        SELECT 
-            ae.asset_id,
-            ae.asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.balancing_authority_region,
-        FROM '{annual_asset_path}' ae
-        WHERE 
-            subsector = '{selected_subsector}'
-            AND year = {selected_year}
-    '''
+    # find asset information for highlighting
+    query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
     df_assets_filter = con.execute(query_assets_filter).df()
-    df_assets_filter = df_assets_filter.drop_duplicates('asset_id')
-    df_assets_filter['selected_asset_list'] = df_assets_filter['iso3_country'] + ': ' + df_assets_filter['asset_name'] + ' (' + df_assets_filter['asset_id'].astype(str) + ')'
-    df_assets_filter = df_assets_filter.sort_values(['selected_asset_list'])
-
-    # query all assets using selected info
-    query_assets = f'''
-        SELECT 
-            ae.year,
-            ae.asset_id,
-            ae.asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.balancing_authority_region,
-            ae.continent,
-            ae.eu,
-            ae.oecd,
-            ae.unfccc_annex,
-            ae.developed_un,
-            ae.em_finance,
-            ae.sector,
-            ae.subsector,
-            ae.gadm_1,
-            ae.gadm_2,
-            ae.activity_units,
-            ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
-            SUM(ae.activity) AS activity,
-            SUM(ae.capacity) AS capacity,
-            SUM(ae.emissions_quantity) AS emissions_quantity,
-            ae.emissions_reduced_at_asset AS reduced_emissions,
-            ae.total_emissions_reduced_per_year AS net_reduced_emissions
-        FROM '{annual_asset_path}' ae
-        WHERE 
-            subsector = '{selected_subsector}'
-            AND year = {selected_year}
-        GROUP BY
-            ae.year,
-            ae.asset_id,
-            ae.asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.balancing_authority_region,
-            ae.continent,
-            ae.eu,
-            ae.oecd,
-            ae.unfccc_annex,
-            ae.developed_un,
-            ae.em_finance,
-            ae.sector,
-            ae.subsector,
-            ae.gadm_1,
-            ae.gadm_2,
-            ae.activity_units,
-            ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
-            ae.emissions_reduced_at_asset,
-            ae.total_emissions_reduced_per_year
-    '''
+    
+    # query all assets using selected info and add gadm information
+    query_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
     df_assets = con.execute(query_assets).df()
-    df_assets = pd.DataFrame(df_assets)
-    df_assets['emissions_factor'] = df_assets['emissions_quantity'] / df_assets['activity']
     df_assets =  relabel_regions(df_assets)
     num_ers = df_assets['strategy_name'].nunique()
-
-    # add gadm information
-    query_gadm_0 = f'''
-        SELECT DISTINCT
-            gid AS gid_0,
-            iso3_country
-        FROM '{gadm_0_path}'
-        '''
-    df_gadm_0 = con.execute(query_gadm_0).df()
-
-    query_gadm_1 = f'''
-        SELECT DISTINCT
-            gid AS gid_1,
-            gadm_id AS gadm_1,
-            gadm_1_corrected_name AS gadm_1_name
-        FROM '{gadm_1_path}'
-        '''
-    df_gadm_1 = con.execute(query_gadm_1).df()
-
-    query_gadm_2 = f'''
-        SELECT DISTINCT
-            gid AS gid_2,
-            gadm_2_id AS gadm_2,
-            gadm_2_corrected_name AS gadm_2_name
-        FROM '{gadm_2_path}'
-        '''
-    df_gadm_2 = con.execute(query_gadm_2).df()
-
-    df_assets = df_assets.merge(df_gadm_0, how='left', on='iso3_country').merge(df_gadm_1, how='left', on='gadm_1').merge(df_gadm_2, how='left', on='gadm_2')
 
     ##### SUMMARIZE KEY METRICS -------
     activity_unit = df_assets['activity_units'][0]
@@ -395,14 +295,8 @@ def show_abatement_curve():
     st.markdown("### emissions-reducing solutions")
 
     # create a table to summarize ers for sector
-    ers_table = df_assets.copy()
-    ers_table = ers_table.groupby(['strategy_name', 'strategy_description', 'mechanism']).agg(
-        assets_impacted=('asset_id', 'count'),
-        total_reduced_emissions=('reduced_emissions', 'sum'),
-        total_net_reduced_emissions=('net_reduced_emissions', 'sum')).reset_index()
-    ers_table = ers_table.sort_values(['total_net_reduced_emissions'], ascending=False)
-    ers_table['total_reduced_emissions'] = ers_table['total_reduced_emissions'].round()
-    ers_table['total_net_reduced_emissions'] = ers_table['total_net_reduced_emissions'].round()
+    query_ers = summarize_ers_sql(annual_asset_path, selected_subsector, selected_year)
+    ers_table = con.execute(query_ers).df()
 
     st.dataframe(
         ers_table,
@@ -424,11 +318,6 @@ def show_abatement_curve():
     df_table['gadm_2_url'].fillna('', inplace=True)
     # filter + format table
     df_table = df_table.sort_values('emissions_quantity', ascending=False).reset_index(drop=True)
-    df_table['emissions_quantity (t CO2e)'] = df_table['emissions_quantity'].round()
-    df_table['reduced_emissions (t CO2e)'] = df_table['reduced_emissions'].fillna(0)
-    df_table['reduced_emissions (t CO2e)'] = df_table['reduced_emissions (t CO2e)'].round()
-    df_table['net_reduced_emissions (t CO2e)'] = df_table['net_reduced_emissions'].fillna(0)
-    df_table['net_reduced_emissions (t CO2e)'] = df_table['net_reduced_emissions (t CO2e)'].round()
     df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduced_emissions (t CO2e)', 'net_reduced_emissions (t CO2e)']]
     
     st.markdown(f"### {selected_subsector} assets")
