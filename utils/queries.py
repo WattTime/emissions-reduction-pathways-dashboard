@@ -517,42 +517,6 @@ def create_assets_filter_sql(annual_asset_path, selected_subsector, selected_yea
 
     return query_assets_sql
 
-
-'''
-This is the SQL query for the raster filtering/highlighting in the Abatement Curve tab. 
-This will change depending on the sector and year selected.
-
-Returns: query_raster_sql
-
-Type: string (SQL)
-'''
-def create_raster_filter_sql(annual_asset_path, gadm_0_path, selected_subsector, selected_year):
-    
-    query_raster_sql = f'''
-        SELECT DISTINCT
-            gadm0.gid_0 AS asset_id,
-            gadm0.iso3_country AS asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.balancing_authority_region,
-            gadm0.iso3_country AS selected_asset_list
-        FROM '{annual_asset_path}' ae
-        LEFT JOIN (
-            SELECT DISTINCT
-                gid AS gid_0, 
-                iso3_country 
-            FROM '{gadm_0_path}'
-            ) gadm0
-        ON ae.iso3_country = gadm0.iso3_country
-        WHERE 
-            ae.subsector = '{selected_subsector}'
-            AND ae.year = {selected_year}
-        ORDER BY selected_asset_list; 
-    '''
-
-    return query_raster_sql
-
-
 '''
 This is the SQL query to find all assets and their GADM information within a 
 sector/year in the Abatement Curve tab. This table is used to create the 
@@ -589,17 +553,12 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             gadm2.gadm_2_name,
             ae.activity_units,
             ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
             SUM(ae.activity) AS activity,
             SUM(ae.capacity) AS capacity,
             SUM(ae.emissions_quantity) AS emissions_quantity,
-            ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
             ae.emissions_reduced_at_asset AS reduced_emissions,
-            ROUND(COALESCE(ae.emissions_reduced_at_asset, 0), 0) AS "reduced_emissions (t CO2e)",
-            ae.total_emissions_reduced_per_year AS net_reduced_emissions,
-            ROUND(COALESCE(ae.total_emissions_reduced_per_year, 0), 0) AS "net_reduced_emissions (t CO2e)"
+            ae.total_emissions_reduced_per_year AS net_reduced_emissions
         FROM '{annual_asset_path}' ae
         LEFT JOIN (
             SELECT DISTINCT
@@ -651,87 +610,11 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             gadm2.gadm_2_name,
             ae.activity_units,
             ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
             ae.emissions_reduced_at_asset,
             ae.total_emissions_reduced_per_year
     '''
 
     return query_sector_assets_sql
-
-'''
-This is the SQL query to find all raster assets and their GADM information within a 
-sector/year in the Abatement Curve tab. This table is used to create the 
-abatement curve chart as well as populate the asset data table. 
-
-Returns: query_sector_raster_sql
-
-Type: string (SQL)
-'''
-def find_sector_raster_sql(annual_asset_path, gadm_0_path, selected_subsector, selected_year):
-    
-    query_sector_raster_sql = f'''
-        SELECT 
-            ae.year,
-            gadm0.gid_0 AS asset_id,
-            gadm0.iso3_country AS asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.continent,
-            ae.eu,
-            ae.oecd,
-            ae.unfccc_annex,
-            ae.developed_un,
-            ae.em_finance,
-            ae.sector,
-            ae.subsector,
-            ae.activity_units,
-            ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
-            SUM(ae.activity) AS activity,
-            SUM(ae.capacity) AS capacity,
-            SUM(ae.emissions_quantity) AS emissions_quantity,
-            ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
-            SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
-            ae.emissions_reduced_at_asset AS reduced_emissions,
-            ROUND(COALESCE(ae.emissions_reduced_at_asset, 0), 0) AS "reduced_emissions (t CO2e)",
-            ae.total_emissions_reduced_per_year AS net_reduced_emissions,
-            ROUND(COALESCE(ae.total_emissions_reduced_per_year, 0), 0) AS "net_reduced_emissions (t CO2e)"
-        FROM '{annual_asset_path}' ae
-        LEFT JOIN (
-            SELECT DISTINCT
-                gid AS gid_0, 
-                iso3_country 
-            FROM '{gadm_0_path}'
-            ) gadm0
-        ON ae.iso3_country = gadm0.iso3_country
-        WHERE 
-            subsector = '{selected_subsector}'
-            AND year = {selected_year}
-        GROUP BY
-            ae.year,
-            gadm0.gid_0,
-            gadm0.iso3_country,
-            ae.iso3_country,
-            ae.country_name,
-            ae.continent,
-            ae.eu,
-            ae.oecd,
-            ae.unfccc_annex,
-            ae.developed_un,
-            ae.em_finance,
-            ae.sector,
-            ae.subsector,
-            ae.activity_units,
-            ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
-            ae.emissions_reduced_at_asset,
-            ae.total_emissions_reduced_per_year
-    '''
-
-    return query_sector_raster_sql
 
 
 '''
@@ -765,3 +648,81 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year):
     '''
 
     return query_ers_sql
+
+def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year):
+    
+    query_table_assets_sql = f'''
+        SELECT 
+            ae.year,
+            ae.asset_id,
+            ae.asset_name,
+            ae.iso3_country,
+            ae.country_name,
+            gadm0.gid_0,
+            ae.gadm_1,
+            gadm1.gid_1,
+            gadm1.gadm_1_name,
+            ae.gadm_2,
+            gadm2.gid_2,
+            gadm2.gadm_2_name,
+            ae.activity_units,
+            ae.strategy_name,
+            ae.strategy_description,
+            ae.mechanism,
+            SUM(ae.activity) AS activity,
+            SUM(ae.capacity) AS capacity,
+            ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
+            SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
+            ROUND(COALESCE(ae.emissions_reduced_at_asset, 0), 0) AS "reduced_emissions (t CO2e)",
+            ROUND(COALESCE(ae.total_emissions_reduced_per_year, 0), 0) AS "net_reduced_emissions (t CO2e)"
+        FROM '{annual_asset_path}' ae
+        LEFT JOIN (
+            SELECT DISTINCT
+                gid AS gid_0, 
+                iso3_country 
+            FROM '{gadm_0_path}'
+            ) gadm0
+        ON ae.iso3_country = gadm0.iso3_country
+        LEFT JOIN (
+            SELECT DISTINCT
+                gid AS gid_1,
+                gadm_id AS gadm_1,
+                gadm_1_corrected_name AS gadm_1_name
+            FROM '{gadm_1_path}'
+            ) gadm1
+        ON ae.gadm_1 = gadm1.gadm_1
+        LEFT JOIN (
+            SELECT DISTINCT
+                gid AS gid_2,
+                gadm_2_id AS gadm_2,
+                gadm_2_corrected_name AS gadm_2_name
+            FROM '{gadm_2_path}'
+        ) gadm2
+        ON ae.gadm_2 = gadm2.gadm_2
+        WHERE 
+            subsector = '{selected_subsector}'
+            AND year = {selected_year}
+        GROUP BY
+            ae.year,
+            ae.asset_id,
+            ae.asset_name,
+            ae.iso3_country,
+            ae.country_name,
+            gadm0.gid_0,
+            ae.gadm_1,
+            gadm1.gid_1,
+            gadm1.gadm_1_name,
+            ae.gadm_2,
+            gadm2.gid_2,
+            gadm2.gadm_2_name,
+            ae.activity_units,
+            ae.strategy_name,
+            ae.strategy_description,
+            ae.mechanism,
+            ae.emissions_reduced_at_asset,
+            ae.total_emissions_reduced_per_year
+        ORDER BY "emissions_quantity (t CO2e)" DESC
+        LIMIT 500
+    '''
+
+    return query_table_assets_sql

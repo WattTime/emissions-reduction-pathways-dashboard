@@ -854,8 +854,6 @@ def make_county_url(row):
 def return_sector_type(sector):
     if sector in ['fossil-fuel-operations', 'manufacturing', 'mineral-extraction', 'power', 'waste']:
         sector_type = 'asset'
-        sector_type_desc = 'asset'
     elif sector in ['agriculture', 'buildings', 'fluorinated-gases', 'forestry-and-land-use', 'transportation']:
         sector_type = 'raster'
-        sector_type_desc = 'assets (aggregated)'
-    return sector_type, sector_type_desc
+    return sector_type
