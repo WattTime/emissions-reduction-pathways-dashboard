@@ -3,9 +3,8 @@ import duckdb
 import re
 import pandas as pd
 from config import CONFIG
-from utils.utils import (relabel_regions, bordered_metric_abatement,
-                         define_color_lines, plot_abatement_curve,
-                         make_asset_url, make_country_url, make_state_url, make_county_url)
+from utils.utils import *
+from utils.queries import *
 
 def show_abatement_curve():
 
@@ -26,16 +25,10 @@ def show_abatement_curve():
     with sector_col:
         selected_sector= st.selectbox(
             "Sector",
-            options=['manufacturing', 'power', 'waste'])
+            options=abatement_subsector_options.keys())
 
     with subsector_col:
-        subsector_options = {
-            'manufacturing': ['aluminum', 'cement', 'chemicals', 'food-beverage-tobacco', 'glass', 'iron-and-steel', 
-                              'lime', 'other-chemicals', 'other-manufacturing', 'other-metals', 'petrochemical-steam-cracking', 
-                              'pulp-and-paper', 'textiles-leather-apparel'],
-            'power': ['electricity-generation'],
-            'waste': ['solid-waste-disposal']
-        }
+        subsector_options = abatement_subsector_options
         selected_subsector = st.selectbox(
             "Subsector",
             options=subsector_options[selected_sector])
@@ -55,125 +48,31 @@ def show_abatement_curve():
     ##### QUERY DATA -------
     con = duckdb.connect()
 
-    # find information for highlighting
-    query_assets_filter = f'''
-        SELECT 
-            ae.asset_id,
-            ae.asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.balancing_authority_region,
-        FROM '{annual_asset_path}' ae
-        WHERE 
-            subsector = '{selected_subsector}'
-            AND year = {selected_year}
-    '''
+    # determine sector type
+    sector_type = return_sector_type(selected_sector)
+
+    # find asset information for highlighting
+    query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
     df_assets_filter = con.execute(query_assets_filter).df()
-    df_assets_filter = df_assets_filter.drop_duplicates('asset_id')
-    df_assets_filter['selected_asset_list'] = df_assets_filter['iso3_country'] + ': ' + df_assets_filter['asset_name'] + ' (' + df_assets_filter['asset_id'].astype(str) + ')'
-    df_assets_filter = df_assets_filter.sort_values(['selected_asset_list'])
-
-    # query all assets using selected info
-    query_assets = f'''
-        SELECT 
-            ae.year,
-            ae.asset_id,
-            ae.asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.balancing_authority_region,
-            ae.continent,
-            ae.eu,
-            ae.oecd,
-            ae.unfccc_annex,
-            ae.developed_un,
-            ae.em_finance,
-            ae.sector,
-            ae.subsector,
-            ae.gadm_1,
-            ae.gadm_2,
-            ae.activity_units,
-            ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
-            SUM(ae.activity) AS activity,
-            SUM(ae.capacity) AS capacity,
-            SUM(ae.emissions_quantity) AS emissions_quantity,
-            ae.emissions_reduced_at_asset AS reduced_emissions,
-            ae.total_emissions_reduced_per_year AS net_reduced_emissions
-        FROM '{annual_asset_path}' ae
-        WHERE 
-            subsector = '{selected_subsector}'
-            AND year = {selected_year}
-        GROUP BY
-            ae.year,
-            ae.asset_id,
-            ae.asset_name,
-            ae.iso3_country,
-            ae.country_name,
-            ae.balancing_authority_region,
-            ae.continent,
-            ae.eu,
-            ae.oecd,
-            ae.unfccc_annex,
-            ae.developed_un,
-            ae.em_finance,
-            ae.sector,
-            ae.subsector,
-            ae.gadm_1,
-            ae.gadm_2,
-            ae.activity_units,
-            ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
-            ae.emissions_reduced_at_asset,
-            ae.total_emissions_reduced_per_year
-    '''
+    
+    # query all assets using selected info and add gadm information
+    query_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
     df_assets = con.execute(query_assets).df()
-    df_assets = pd.DataFrame(df_assets)
-    df_assets['emissions_factor'] = df_assets['emissions_quantity'] / df_assets['activity']
     df_assets =  relabel_regions(df_assets)
-    num_ers = df_assets['strategy_name'].nunique()
-
-    # add gadm information
-    query_gadm_0 = f'''
-        SELECT DISTINCT
-            gid AS gid_0,
-            iso3_country
-        FROM '{gadm_0_path}'
-        '''
-    df_gadm_0 = con.execute(query_gadm_0).df()
-
-    query_gadm_1 = f'''
-        SELECT DISTINCT
-            gid AS gid_1,
-            gadm_id AS gadm_1,
-            gadm_1_corrected_name AS gadm_1_name
-        FROM '{gadm_1_path}'
-        '''
-    df_gadm_1 = con.execute(query_gadm_1).df()
-
-    query_gadm_2 = f'''
-        SELECT DISTINCT
-            gid AS gid_2,
-            gadm_2_id AS gadm_2,
-            gadm_2_corrected_name AS gadm_2_name
-        FROM '{gadm_2_path}'
-        '''
-    df_gadm_2 = con.execute(query_gadm_2).df()
-
-    df_assets = df_assets.merge(df_gadm_0, how='left', on='iso3_country').merge(df_gadm_1, how='left', on='gadm_1').merge(df_gadm_2, how='left', on='gadm_2')
 
     ##### SUMMARIZE KEY METRICS -------
     activity_unit = df_assets['activity_units'][0]
+    total_ers = df_assets['strategy_name'].nunique()
     total_emissions = df_assets['emissions_quantity'].sum()
     total_assets = df_assets['asset_id'].nunique()
+    total_countries = df_assets['iso3_country'].nunique()
+    total_ba = df_assets['balancing_authority_region'].nunique()
 
     ##### DROPDOWN MENU: METRIC, GROUP, COLOR, HIGHLIGHT -------
     metric_col, group_col, color_col, asset_col = st.columns(4)
 
     with metric_col:
-        if num_ers > 0:
+        if total_ers > 0:
             metric_options = ['emissions_factor', 'reduced_emissions', 'net_reduced_emissions']
         else:
             metric_options = ['emissions_factor']
@@ -183,9 +82,11 @@ def show_abatement_curve():
 
     with group_col:
         if selected_subsector == 'electricity-generation':
-            group_options = ["country", "balancing_authority_region"]
+            group_options = ['balancing_authority_region', 'country']
+        elif sector_type == 'asset':
+            group_options=['asset', 'country']
         else:
-            group_options= ["asset", "country"]
+            group_options= ['country']
         selected_group = st.selectbox(
             "Group type",
             options=group_options)
@@ -219,7 +120,7 @@ def show_abatement_curve():
         f"such as Direct Reduced Iron–Electric Arc Furnace (DRI-EAF). <br><br> While greener steel technologies almost always lower "
         f"emissions, their impact is greatest when applied to mills with higher-emitting existing technology types, strong suitability "
         f"for conversion to low-emission options like DRI-EAF, and access to cleaner electricity sources in the local grid. "
-        f"Climate TRACE analyzed the world's largest {total_assets} steel mills to determine which facilities combine "
+        f"Climate TRACE analyzed the world's largest {total_assets:,} steel mills to determine which facilities combine "
         f"these factors most effectively. The chart below shows the impact of all opportunities, ranked by "
         f"the emissions reduction potential per ton of steel produced using cleaner technology.")
     
@@ -232,7 +133,7 @@ def show_abatement_curve():
         f"the impact is greatest for sites with poorer existing coverage and higher organic waste content. "
         f"Drawing on best practices from developed nations, covering landfills with materials such as "
         f"sand and clay can significantly cut methane emissions. Climate TRACE analyzed these characteristics "
-        f"across {total_assets} of the world’s largest landfills to identify where covering landfills would likely "
+        f"across {total_assets:,} of the world’s largest landfills to identify where covering landfills would likely "
         f"offer the greatest emissions reductions per ton of waste covered.")
     
     electricity_generation = (
@@ -242,7 +143,7 @@ def show_abatement_curve():
         f"anywhere always displaces generation at nearby 'marginal' power plants on the same grid. <br><br>"
         f"While renewable energy projects almost always cut emissions, their impact is greatest in grids where "
         f"marginal plants rely on fossil fuels—especially highly emissions-intensive fuels such as anthracite coal—"
-        f"and operate with low energy efficiency. Climate TRACE analyzed all {total_assets} power grids worldwide to pinpoint "
+        f"and operate with low energy efficiency. Climate TRACE analyzed all {total_assets:,} power grids worldwide to pinpoint "
         f"where building renewable energy would achieve the greatest emissions reductions per kilowatt-hour generated. "
         f"The chart below shows the potential impact of all opportunities, ranked by emissions reductions per "
         f"kilowatt-hour of renewable energy produced.")
@@ -255,7 +156,7 @@ def show_abatement_curve():
     if selected_subsector not in ['iron-and-steel', 'solid-waste-disposal', 'electricity-generation']:
         summary_text = (f"The {selected_subsector} emits approximately <b>{round(total_emissions / 1000000000, 1)} billion tons of CO₂</b> worldwide each year. "
                         f"More details on effective strategies to reduce emissions in this sector will be available soon.<br><br>"
-                        f"Climate TRACE analyzed {total_assets} assets worldwide and identified emissions reducing solutions for each asset.")
+                        f"Climate TRACE analyzed {total_assets:,} assets worldwide and identified emissions reducing solutions for each asset.")
     else:
         summary_text = (f"{summary_solution[selected_subsector]}")
 
@@ -380,11 +281,21 @@ def show_abatement_curve():
     ##### PLOT FIGURE -------
     st.markdown("<br>", unsafe_allow_html=True)
     fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
-    
+
+    if selected_group == 'asset':
+        total_units = total_assets
+        total_units_desc = 'total assets'
+    elif selected_group == 'country':
+        total_units = total_countries
+        total_units_desc = 'countries'
+    elif selected_group == 'balancing_authority_region':
+        total_units = total_ba
+        total_units_desc = 'balancing authority regions'
+
     st.markdown(
         f"""
         <div style="text-align:left; font-size:24px; margin-top:10px;">
-            <b>{selected_subsector} ({selected_year})</b> {metric_unit} - <i>{round(len(df_assets)):,} total assets</i>
+            <b>{selected_subsector} ({selected_year})</b> {metric_unit} - <i>{total_units:,} {total_units_desc}</i>
         </div>
         """,
         unsafe_allow_html=True)
@@ -392,17 +303,11 @@ def show_abatement_curve():
     st.plotly_chart(fig, use_container_width=True)
 
     ##### EMISSIONS REDUCING SOLUTIONS -------
-    st.markdown("### emissions-reducing solutions")
+    st.markdown(f"### {total_ers} emissions-reducing solutions")
 
     # create a table to summarize ers for sector
-    ers_table = df_assets.copy()
-    ers_table = ers_table.groupby(['strategy_name', 'strategy_description', 'mechanism']).agg(
-        assets_impacted=('asset_id', 'count'),
-        total_reduced_emissions=('reduced_emissions', 'sum'),
-        total_net_reduced_emissions=('net_reduced_emissions', 'sum')).reset_index()
-    ers_table = ers_table.sort_values(['total_net_reduced_emissions'], ascending=False)
-    ers_table['total_reduced_emissions'] = ers_table['total_reduced_emissions'].round()
-    ers_table['total_net_reduced_emissions'] = ers_table['total_net_reduced_emissions'].round()
+    query_ers = summarize_ers_sql(annual_asset_path, selected_subsector, selected_year)
+    ers_table = con.execute(query_ers).df()
 
     st.dataframe(
         ers_table,
@@ -410,28 +315,26 @@ def show_abatement_curve():
         row_height=80,
         column_config={
             "strategy_description": st.column_config.Column(width="large"),
+            "assets_impacted": st.column_config.NumberColumn(format="localized"),
             "total_reduced_emissions": st.column_config.NumberColumn(format="localized"),
             "total_net_reduced_emissions": st.column_config.NumberColumn(format="localized")})
 
     # create a table with all assets + ERS info
-    df_table = df_assets.copy()
+    query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
+    df_table = con.execute(query_table).df()
+
     # create urls to link info to climate trace website
     df_table['asset_url'] = df_table.apply(make_asset_url, axis=1)
     df_table['country_url'] = df_table.apply(make_country_url, axis=1)
     df_table['gadm_1_url'] = df_table.apply(make_state_url, axis=1)
-    df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
     df_table['gadm_1_url'].fillna('', inplace=True)
+    df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
     df_table['gadm_2_url'].fillna('', inplace=True)
+
     # filter + format table
-    df_table = df_table.sort_values('emissions_quantity', ascending=False).reset_index(drop=True)
-    df_table['emissions_quantity (t CO2e)'] = df_table['emissions_quantity'].round()
-    df_table['reduced_emissions (t CO2e)'] = df_table['reduced_emissions'].fillna(0)
-    df_table['reduced_emissions (t CO2e)'] = df_table['reduced_emissions (t CO2e)'].round()
-    df_table['net_reduced_emissions (t CO2e)'] = df_table['net_reduced_emissions'].fillna(0)
-    df_table['net_reduced_emissions (t CO2e)'] = df_table['net_reduced_emissions (t CO2e)'].round()
     df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduced_emissions (t CO2e)', 'net_reduced_emissions (t CO2e)']]
-    
-    st.markdown(f"### {selected_subsector} assets")
+
+    st.markdown(f"### top emitting {selected_subsector} assets")
 
     # display table
     st.dataframe(

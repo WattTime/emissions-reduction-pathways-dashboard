@@ -413,6 +413,78 @@ def reset_state_and_county():
     st.session_state["state_province_selector"] = "-- Select State / Province --"
     st.session_state["county_district_selector"] = "-- Select County / District --"
 
+
+abatement_subsector_options = {
+    'agriculture': [
+        'crop-residues',
+        'cropland-fires',
+        'enteric-fermentation-cattle-operation',
+        'enteric-fermentation-cattle-pasture',
+        'manure-applied-to-soils',
+        'manure-left-on-pasture-cattle',
+        'manure-management-cattle-operation',
+        'rice-cultivation',
+        'synthetic-fertilizer-application',
+    ],
+    'buildings': [
+        'non-residential-onsite-fuel-usage',
+        'residential-onsite-fuel-usage',
+    ],
+    'forestry-and-land-use': [
+        'forest-land-clearing',
+        'forest-land-degradation',
+        'forest-land-fires',
+        'net-forest-land',
+        'net-shrubgrass',
+        'net-wetland',
+        'removals',
+        'shrubgrass-fires',
+        'water-reservoirs',
+        'wetland-fires',
+    ],
+    'fossil-fuel-operations': [
+        'coal-mining',
+        'oil-and-gas-production',
+        'oil-and-gas-refining',
+        'oil-and-gas-transport',
+    ],
+    'manufacturing': [
+        'aluminum',
+        'cement',
+        'chemicals',
+        'food-beverage-tobacco',
+        'glass',
+        'iron-and-steel',
+        'lime',
+        'other-chemicals',
+        'other-manufacturing',
+        'other-metals',
+        'petrochemical-steam-cracking',
+        'pulp-and-paper',
+        'textiles-leather-apparel',
+    ],
+    'mineral-extraction': [
+        'bauxite-mining',
+        'copper-mining',
+        'iron-mining',
+    ],
+    'power': [
+        'electricity-generation',
+    ],
+    'transportation': [
+        'domestic-aviation',
+        'domestic-shipping',
+        'international-aviation',
+        'international-shipping',
+        'road-transportation',
+    ],
+    'waste': [
+        #'domestic-wastewater-treatment-and-discharge',
+        #'industrial-wastewater-treatment-and-discharge',
+        'solid-waste-disposal',
+    ],
+}
+
 def define_color_lines():
 
     # dictionary for asset colors
@@ -462,28 +534,14 @@ def define_color_lines():
     }
 
     # dictionary for lines / outlier values
-    dict_lines = {}
-    # power
-    dict_lines['electricity-generation'] = {}
-    # waste
-    dict_lines['solid-waste-disposal'] = {'more landfills above': 3}
-    # manufacturing
-    dict_lines['aluminum'] = {}
-    dict_lines['cement'] = {}
-    dict_lines['chemicals'] = {}
-    dict_lines['food-beverage-tobacco'] = {'more facilities above': 0.00021}
-    dict_lines['glass'] = {}
-    dict_lines['iron-and-steel'] = {}
-    dict_lines['lime'] = {}
-    dict_lines['other-chemicals'] = {}
-    dict_lines['other-manufacturing'] = {}
-    dict_lines['other-metals'] = {}
-    dict_lines['petrochemical-steam-cracking'] = {}
-    dict_lines['pulp-and-paper'] = {}
-    dict_lines['textiles-leather-apparel'] = {}
-    dict_lines['wood-and-wood-products'] = {}
-    # transportation
-    dict_lines['road-transportation'] = {}
+    outlier_values = {
+    'solid-waste-disposal': {'more landfills above': 3},
+    'food-beverage-tobacco': {'more facilities above': 0.00021}}
+
+    dict_lines = {
+        subsector: outlier_values.get(subsector, {})
+        for sector, sublist in abatement_subsector_options.items()
+        for subsector in sublist}
 
     return dict_color, dict_lines
 
@@ -792,3 +850,10 @@ def make_county_url(row):
     encoded = urllib.parse.urlencode(params, safe=':,._()-')
     full_url = f"{url_root}{encoded}"
     return full_url
+
+def return_sector_type(sector):
+    if sector in ['fossil-fuel-operations', 'manufacturing', 'mineral-extraction', 'power', 'waste']:
+        sector_type = 'asset'
+    elif sector in ['agriculture', 'buildings', 'fluorinated-gases', 'forestry-and-land-use', 'transportation']:
+        sector_type = 'raster'
+    return sector_type
