@@ -512,7 +512,7 @@ def define_color_lines():
         'Africa': '#C75B39',
         'South America': '#4C956C',
         'Oceania': '#91643A',
-        'Antartica': '#D3D3D3',
+        'Antarctica': '#D3D3D3',
         'Unknown/Unlisted': '#9E9C9C'
     }
     dict_color['sector'] = {
