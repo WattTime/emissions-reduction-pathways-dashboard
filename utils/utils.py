@@ -485,7 +485,7 @@ abatement_subsector_options = {
     ],
 }
 
-def define_color_lines():
+def define_color_lines(metric):
 
     # dictionary for asset colors
     dict_color = {}
@@ -534,15 +534,28 @@ def define_color_lines():
         'background3': '#444546',
     }
 
-    # dictionary for lines / outlier values
-    outlier_values = {
-    'solid-waste-disposal': {'more landfills above': 3},
-    'food-beverage-tobacco': {'more facilities above': 0.00021}}
-
-    dict_lines = {
-        subsector: outlier_values.get(subsector, {})
-        for sector, sublist in abatement_subsector_options.items()
-        for subsector in sublist}
+    if metric == 'emissions_factor':
+        outlier_values = {
+        'solid-waste-disposal': {'more landfills above': 1},
+        'food-beverage-tobacco': {'more facilities above': 0.0000814059958583646}}
+        dict_lines = {
+            subsector: outlier_values.get(subsector, {})
+            for subsector, sublist in abatement_subsector_options.items()
+            for subsector in sublist}  
+        
+    elif metric == 'asset_reduction_potential':
+        outlier_values = {}
+        dict_lines = {
+            subsector: outlier_values.get(subsector, {})
+            for subsector, sublist in abatement_subsector_options.items()
+            for subsector in sublist}
+        
+    elif metric == 'net_reduction_potential':
+        outlier_values = {}
+        dict_lines = {
+            subsector: outlier_values.get(subsector, {})
+            for subsector, sublist in abatement_subsector_options.items()
+            for subsector in sublist}
 
     return dict_color, dict_lines
 
@@ -593,7 +606,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
             else:
                 fds_key = [choice_color] + ['iso3_country', 'country_name', choice_group, 'sector', 'subsector']
 
-        df = df.pivot_table(index=fds_key, values=['activity','emissions_quantity', 'reduced_emissions', 'net_reduced_emissions'], aggfunc='sum')
+        df = df.pivot_table(index=fds_key, values=['activity','emissions_quantity', 'asset_reduction_potential', 'net_reduction_potential'], aggfunc='sum')
         df['emissions_factor'] = df['emissions_quantity']/df['activity']
 
         df = df.sort_values([selected_metric, 'activity'], ascending=cond['sort_order'])
@@ -630,10 +643,10 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
     if selected_metric == 'emissions_factor':
         y_axis_title = f'emissions factor (t of CO2e per {activity_unit if 'yaxis_title' not in cond else cond['yaxis_title']})'
         hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>EF: {round(df[selected_metric][0], 3)}',
-    elif selected_metric == 'reduced_emissions':
-        y_axis_title = 'emissions reduction potential (t of CO2e)'
+    elif selected_metric == 'asset_reduction_potential':
+        y_axis_title = 'asset emissions reduction potential (t of CO2e)'
         hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>Reduction Potential: {round(df[selected_metric][0], 0)}',
-    elif selected_metric == 'net_reduced_emissions':
+    elif selected_metric == 'net_reduction_potential':
         y_axis_title = 'net emissions reduction potential (t of CO2e)'
         hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>Net Reduction Potential: {round(df[selected_metric][0], 0)}',
     
@@ -740,7 +753,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
         xaxis_title=f'activity ({activity_unit if 'xaxis_title' not in cond else cond['xaxis_title']})',
         yaxis_title=y_axis_title,
         showlegend=True,
-        legend=dict(x=0.9, y=1, xanchor='right', yanchor='top'),
+        legend=dict(x=1.08, y=0.97, xanchor='right', yanchor='top'),
         plot_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=50, r=50, t=20, b=50),
         xaxis=dict(
@@ -754,7 +767,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
             zeroline=True,
             zerolinecolor='lightgrey',
             gridcolor='lightgrey',
-            range=[0, round(df[selected_metric].quantile(y_range_quantile) * 1.05, 4) if max(df[selected_metric])<1 else math.ceil(df[selected_metric].quantile(y_range_quantile) * 1.01)]),
+            range=[0, df[selected_metric].quantile(y_range_quantile)]),
         height=700
     
     )

@@ -15,9 +15,6 @@ def show_abatement_curve():
     gadm_1_path = CONFIG['gadm_1_path']
     gadm_2_path = CONFIG['gadm_2_path']
 
-    # define variables
-    dict_color, dict_lines = define_color_lines()
-
     ##### DROPDOWN MENU: SECTOR, SUBSECTOR, GAS, YEAR -------
     # add drop-down options for filtering data
     sector_col, subsector_col, gas_col, year_col = st.columns(4)
@@ -73,13 +70,13 @@ def show_abatement_curve():
 
     with metric_col:
         if total_ers > 0:
-            metric_options = ['emissions_factor', 'reduced_emissions', 'net_reduced_emissions']
+            metric_options = ['emissions_factor', 'asset_reduction_potential', 'net_reduction_potential']
         else:
             metric_options = ['emissions_factor']
         selected_metric= st.selectbox(
             "Metric",
             options=metric_options)
-
+        
     with group_col:
         if selected_subsector == 'electricity-generation':
             group_options = ['balancing_authority_region', 'country']
@@ -216,7 +213,7 @@ def show_abatement_curve():
         ef_avg_title = 'Average Emissions Factor'
         ef_avg_text = f"{ef_avg}t of CO<sub>2</sub>e<br><span style='font-size:0.6em;'>per {activity_unit}</span>"
     
-    elif selected_metric == 'reduced_emissions':
+    elif selected_metric == 'asset_reduction_potential':
         metric_unit = 'emissions reduction potential'
         if len(ef_max_asset) > 1:
             ef_max_asset = ef_max_asset[:1]
@@ -240,7 +237,7 @@ def show_abatement_curve():
         ef_avg_title = 'Avg Reduction Potential'
         ef_avg_text = f"{ef_avg} million tonnes of CO<sub>2</sub>e<br><span style='font-size:0.6em;'>per asset</span>"
     
-    elif selected_metric == 'net_reduced_emissions':
+    elif selected_metric == 'net_reduction_potential':
         metric_unit = 'net emissions reduction potential'
         if len(ef_max_asset) > 1:
             ef_max_asset = ef_max_asset[:1]
@@ -280,6 +277,8 @@ def show_abatement_curve():
 
     ##### PLOT FIGURE -------
     st.markdown("<br>", unsafe_allow_html=True)
+    # define variables
+    dict_color, dict_lines = define_color_lines(selected_metric)
     fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
 
     if selected_group == 'asset':
@@ -316,8 +315,8 @@ def show_abatement_curve():
         column_config={
             "strategy_description": st.column_config.Column(width="large"),
             "assets_impacted": st.column_config.NumberColumn(format="localized"),
-            "total_reduced_emissions": st.column_config.NumberColumn(format="localized"),
-            "total_net_reduced_emissions": st.column_config.NumberColumn(format="localized")})
+            "total_asset_reduction_potential": st.column_config.NumberColumn(format="localized"),
+            "total_net_reduction_potential": st.column_config.NumberColumn(format="localized")})
 
     # create a table with all assets + ERS info
     query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
@@ -332,7 +331,7 @@ def show_abatement_curve():
     df_table['gadm_2_url'].fillna('', inplace=True)
 
     # filter + format table
-    df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduced_emissions (t CO2e)', 'net_reduced_emissions (t CO2e)']]
+    df_table = df_table[['asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'asset_reduction_potential (t CO2e)', 'net_reduction_potential (t CO2e)']]
 
     st.markdown(f"### top emitting {selected_subsector} assets")
 
@@ -347,8 +346,8 @@ def show_abatement_curve():
             "gadm_1_url": st.column_config.LinkColumn("state / province", display_text=r'admin=(.+?)--'),
             "gadm_2_url": st.column_config.LinkColumn("county / municipality / district", display_text=r'admin=(.+?)--'),
             "emissions_quantity (t CO2e)": st.column_config.NumberColumn(format="localized"),
-            "reduced_emissions (t CO2e)": st.column_config.NumberColumn(format="localized"),
-            "net_reduced_emissions (t CO2e)": st.column_config.NumberColumn(format="localized")}
+            "asset_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized"),
+            "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
     )
 
 
