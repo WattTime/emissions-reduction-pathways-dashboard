@@ -567,7 +567,7 @@ def show_emissions_reduction_plan():
             "Choose Reduction Type",
             ["Asset Reductions","Net Reductions"],
             horizontal=True,
-            disabled=True,
+            #disabled=True,
             help=(
                 "**Asset (Allocational) Reductions**: Emissions reduced directly at the asset where the solution is applied — "
                 "e.g., a blast furnace that shuts down shows reductions only at that steelmaking facility.\n\n"
