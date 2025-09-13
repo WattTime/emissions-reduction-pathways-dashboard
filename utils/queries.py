@@ -112,7 +112,7 @@ def build_sector_reduction_sql(use_ct_ers,
                                     , induced_sector_1 AS induced_subsector
                                     , induced_sector_1_induced_emissions AS induced_emissions
                                 FROM '{annual_asset_path}' aap
-                                LEFT JOIN sector_mapping
+                                INNER JOIN sector_mapping
                                     on sector_mapping.subsector = aap.induced_sector_1
                                 {dropdown_join}
 
@@ -132,7 +132,7 @@ def build_sector_reduction_sql(use_ct_ers,
                                     , induced_sector_2 AS induced_subsector
                                     , induced_sector_2_induced_emissions AS induced_emissions
                                 FROM '{annual_asset_path}' aap
-                                LEFT JOIN sector_mapping
+                                INNER JOIN sector_mapping
                                     on sector_mapping.subsector = aap.induced_sector_2
                                 {dropdown_join}
 
@@ -152,8 +152,8 @@ def build_sector_reduction_sql(use_ct_ers,
                                     , induced_sector_3 AS induced_subsector
                                     , induced_sector_3_induced_emissions AS induced_emissions
                                 FROM '{annual_asset_path}' aap
-                                LEFT JOIN sector_mapping
-                                    on sector_mapping.subsector = aap.induced_sector_3
+                                INNER JOIN sector_mapping
+                                    on sector_mapping.subsector = cast(aap.induced_sector_3 as varchar)
                                 {dropdown_join}
 
                                 {reduction_where_sql}
@@ -213,6 +213,8 @@ def build_sector_reduction_sql(use_ct_ers,
                 FULL OUTER JOIN induced
                     on induced.sector = ar.sector
             '''
+
+           # print(sector_reduction_sql_string)
     
     else:
         sector_reduction_sql_string = f'''
