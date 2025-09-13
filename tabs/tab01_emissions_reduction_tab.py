@@ -567,7 +567,6 @@ def show_emissions_reduction_plan():
             "Choose Reduction Type",
             ["Asset Reductions","Net Reductions"],
             horizontal=True,
-            disabled=True,
             help=(
                 "**Asset (Allocational) Reductions**: Emissions reduced directly at the asset where the solution is applied — "
                 "e.g., a blast furnace that shuts down shows reductions only at that steelmaking facility.\n\n"
@@ -606,6 +605,11 @@ def show_emissions_reduction_plan():
     
 
     df_stacked_bar = con.execute(query_sector_reductions).df()
+
+    if use_ct_ers is True:
+        df_stacked_bar.drop(df_stacked_bar[df_stacked_bar["sector"] == "fossil-fuel-operations"].index, inplace=True)
+        # print(df_stacked_bar)
+
 
 
     df_stacked_bar = pd.merge(
@@ -649,19 +653,29 @@ def show_emissions_reduction_plan():
         name='Post-Reduction Emissions',
         x=df_stacked_bar["sector"],
         y=df_stacked_bar["static_emissions_q"],
-        marker_color="#606060",
+        marker_color="#707070",
         customdata=df_stacked_bar["formatted_static"],
         hovertemplate='<b>%{x}</b><br>Post-Reduction Emissions: %{customdata} tCO₂e<extra></extra>'
     )
+
 
     fig.add_bar(
         name='Reduction Potential (tCO2e)',
         x=df_stacked_bar["sector"],
         y=df_stacked_bar["emissions_reduction_potential"],
-        marker_color="#C0C0C0",
+        marker=dict(
+            color="rgba(46,139,87,0.75)",  # vivid mid-green, not transparent
+            # pattern=dict(
+            #     shape="x", 
+            #     fgcolor="rgba(46,139,87,0.75)",
+            #     size=8,
+            #     solidity=0.95
+            # )
+        ),
         customdata=df_stacked_bar["formatted_avoided"],
         hovertemplate='<b>%{x}</b><br>Reduction Potential: %{customdata} tCO₂e<extra></extra>'
     )
+
 
     fig.update_layout(
         barmode='stack',
@@ -681,6 +695,10 @@ def show_emissions_reduction_plan():
             y=[0] * len(df_stacked_bar),  # invisible base
             text=[format_number_short(v) for v in df_stacked_bar["total"]],
             textposition="outside",
+            textfont=dict(
+                size=13,             # increase size
+                family="Sans-Serif Italic" # makes it bold
+            ),
             marker=dict(color="rgba(0,0,0,0)"),  # transparent bar
             showlegend=False,
             hoverinfo="skip",
@@ -859,15 +877,15 @@ def show_emissions_reduction_plan():
     # ------------------------------- Asset Table ---------------------------------
     st.markdown("### Top 100 Assets by Annual Reduction Potential")
 
-    asset_sorting_help = ("**Net Reduction Potential:** Top 100 assets by net emissions reduction potential, "
+    asset_sorting_help = ("**Asset Reduction Potential:** Top 100 assets by direct emissions reduction at the asset alone.\n\n"
+        "**Net Reduction Potential:** Top 100 assets by net emissions reduction potential, "
         "including emissions induced in other sectors from executing the respective reduction strategy.\n\n"
-        "**Asset Reduction Potential:** Top 100 assets by direct emissions reduction at the asset itself.\n\n"
         "**Asset Annual Emissions:** Top 100 highest emitting assets by annual (2024) emissions.")
 
     if use_ct_ers is True:
         sorting_options = [
-            "Net Reduction Potential",
             "Asset Reduction Potential",
+            "Net Reduction Potential",
             "Asset Annual Emissions"
         ]
 
