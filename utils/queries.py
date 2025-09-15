@@ -111,9 +111,9 @@ def build_sector_reduction_sql(use_ct_ers,
                                     , sector_mapping.sector
                                     , induced_sector_1 AS induced_subsector
                                     , induced_sector_1_induced_emissions AS induced_emissions
-                                FROM '{annual_asset_path}' aap
+                                FROM '{annual_asset_path}' ae
                                 INNER JOIN sector_mapping
-                                    on sector_mapping.subsector = aap.induced_sector_1
+                                    on sector_mapping.subsector = ae.induced_sector_1
                                 {dropdown_join}
 
                                 {reduction_where_sql}
@@ -131,9 +131,9 @@ def build_sector_reduction_sql(use_ct_ers,
                                     , sector_mapping.sector
                                     , induced_sector_2 AS induced_subsector
                                     , induced_sector_2_induced_emissions AS induced_emissions
-                                FROM '{annual_asset_path}' aap
+                                FROM '{annual_asset_path}' ae
                                 INNER JOIN sector_mapping
-                                    on sector_mapping.subsector = aap.induced_sector_2
+                                    on sector_mapping.subsector = ae.induced_sector_2
                                 {dropdown_join}
 
                                 {reduction_where_sql}
@@ -151,9 +151,9 @@ def build_sector_reduction_sql(use_ct_ers,
                                     , sector_mapping.sector
                                     , induced_sector_3 AS induced_subsector
                                     , induced_sector_3_induced_emissions AS induced_emissions
-                                FROM '{annual_asset_path}' aap
+                                FROM '{annual_asset_path}' ae
                                 INNER JOIN sector_mapping
-                                    on sector_mapping.subsector = cast(aap.induced_sector_3 as varchar)
+                                    on sector_mapping.subsector = cast(ae.induced_sector_3 as varchar)
                                 {dropdown_join}
 
                                 {reduction_where_sql}
@@ -177,7 +177,7 @@ def build_sector_reduction_sql(use_ct_ers,
                             , sum(emissions_quantity) emissions_quantity
                             , emissions_reduced_at_asset
 
-                        FROM '{annual_asset_path}'
+                        FROM '{annual_asset_path}' ae
                         {dropdown_join}
 
                         {reduction_where_sql}
@@ -214,7 +214,7 @@ def build_sector_reduction_sql(use_ct_ers,
                     on induced.sector = ar.sector
             '''
 
-           # print(sector_reduction_sql_string)
+            # print(sector_reduction_sql_string)
     
     else:
         sector_reduction_sql_string = f'''
