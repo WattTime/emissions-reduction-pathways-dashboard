@@ -565,14 +565,15 @@ def show_emissions_reduction_plan():
     if use_ct_ers is True:
         ers_method = st.radio(
             "Choose Reduction Type",
-            ["Asset Reductions","Net Reductions"],
+            ["Net Reductions","Asset Reductions"],
             horizontal=True,
             help=(
-                "**Asset (Allocational) Reductions**: Emissions reduced directly at the asset where the solution is applied — "
-                "e.g., a blast furnace that shuts down shows reductions only at that steelmaking facility.\n\n"
-                "**Net (Consequential) Reductions**: System-wide impact, accounting for emissions induced in other sectors."
-                "For example, switching from a blast furnace to an electric arc furnace reduces on-site emissions, but may increase electricity sector emissions — "
-                "net reductions reflect the total outcome across sectors."
+                "**Net (Consequential) Reductions**: System-wide impact, accounting for emissions induced in other sectors. "
+                "For example, Switching from a blast furnace to an electric arc furnace reduces on-site emissions, but may increase electricity sector emissions.\n\n"
+                "Net reductions reflect the total outcome across sectors."
+                
+                "**Asset (Allocational) Reductions**: Emissions reduced directly at the asset where the solution is applied. "
+                "At a steel plant, for example, a blast furnace that shuts down shows reductions only at that steelmaking facility."
             )
         )
 
@@ -580,6 +581,8 @@ def show_emissions_reduction_plan():
             ers_reduction_col = "total_emissions_reduced_per_year"
         else:
             ers_reduction_col = "emissions_reduced_at_asset"
+    else:
+        ers_method = None
 
     # st.plotly_chart(fig, use_container_width=True)
 
@@ -606,18 +609,34 @@ def show_emissions_reduction_plan():
 
     df_stacked_bar = con.execute(query_sector_reductions).df()
 
+    # print(df_stacked_bar)
+
     if use_ct_ers is True:
         df_stacked_bar.drop(df_stacked_bar[df_stacked_bar["sector"] == "fossil-fuel-operations"].index, inplace=True)
         # print(df_stacked_bar)
 
+    print(use_ct_ers)
+    print(ers_method)
+    if use_ct_ers and ers_method == "Net Reductions":
+        df_stacked_bar = pd.merge(
+            df_pie[["sector","country_emissions_quantity"]],
+            df_stacked_bar[["sector","emissions_reduction_potential",
+                            "emissions_reduced_at_asset", 
+                            "induced_emissions"]],
+            on="sector",
+            how="outer"
+        )
 
-
-    df_stacked_bar = pd.merge(
-        df_pie[["sector","country_emissions_quantity"]],
-        df_stacked_bar[["sector","emissions_reduction_potential"]],
-        on="sector",
-        how="outer"
-    )
+        # print("You hit the correct if statement")
+    else:
+        df_stacked_bar = pd.merge(
+            df_pie[["sector","country_emissions_quantity"]],
+            df_stacked_bar[["sector","emissions_reduction_potential",
+                            ]],
+            on="sector",
+            how="outer"
+        )
+        # print("INCORRECT")
 
     df_stacked_bar["emissions_reduction_potential"] = df_stacked_bar["emissions_reduction_potential"].fillna(0)
 
@@ -644,6 +663,18 @@ def show_emissions_reduction_plan():
 
     df_stacked_bar["formatted_static"] = df_stacked_bar["static_emissions_q"].apply(format_number_short)
     df_stacked_bar["formatted_avoided"] = df_stacked_bar["emissions_reduction_potential"].apply(format_number_short)
+    
+    if use_ct_ers is True and ers_method == "Net Reductions":
+        df_stacked_bar["induced_emissions"] = (
+            df_stacked_bar["induced_emissions"]
+                .fillna(0)                           
+                .apply(format_number_short)          
+        )
+        df_stacked_bar["emissions_reduced_at_asset"] = (
+            df_stacked_bar["emissions_reduced_at_asset"]
+                .fillna(0)                           
+                .apply(format_number_short)          
+        )
 
     # print(df_stacked_bar)
 
@@ -658,34 +689,111 @@ def show_emissions_reduction_plan():
         hovertemplate='<b>%{x}</b><br>Post-Reduction Emissions: %{customdata} tCO₂e<extra></extra>'
     )
 
-
-    fig.add_bar(
-        name='Reduction Potential (tCO2e)',
-        x=df_stacked_bar["sector"],
-        y=df_stacked_bar["emissions_reduction_potential"],
-        marker=dict(
-            color="rgba(46,139,87,0.75)",  # vivid mid-green, not transparent
-            # pattern=dict(
-            #     shape="x", 
-            #     fgcolor="rgba(46,139,87,0.75)",
-            #     size=8,
-            #     solidity=0.95
-            # )
-        ),
-        customdata=df_stacked_bar["formatted_avoided"],
-        hovertemplate='<b>%{x}</b><br>Reduction Potential: %{customdata} tCO₂e<extra></extra>'
-    )
+    # print(df_stacked_bar)
+    # print(df_stacked_bar)
+    if ers_method == "Net Reductions":
+        fig.add_bar(
+            name='Reduction Potential (tCO2e)',
+            x=df_stacked_bar["sector"],
+            y=df_stacked_bar["emissions_reduction_potential"],
+            marker=dict(
+                color="rgba(46,139,87,0.8)",  
+                pattern=dict(
+                    shape="/", 
+                    fgcolor="rgba(46,139,87,0.7)",
+                    size=8,
+                    solidity=0.958
+                )
+            ),
+            
+            # Pack multiple fields into customdata
+            customdata=df_stacked_bar[[
+                "formatted_avoided", 
+                "emissions_reduced_at_asset", 
+                "induced_emissions"
+            ]].values,
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Reduction Potential: %{customdata[0]} tCO₂e"
+                "<br><br>"  # blank line
+                "<span style='color:green'>Asset Reductions: %{customdata[1]} tCO₂e</span><br>"
+                "<span style='color:red'>Induced Emissions: %{customdata[2]} tCO₂e</span>"
+                "<extra></extra>"
+            )
+        )
+    else:
+        fig.add_bar(
+            name='Reduction Potential (tCO2e)',
+            x=df_stacked_bar["sector"],
+            y=df_stacked_bar["emissions_reduction_potential"],
+            marker=dict(
+                color="rgba(46,139,87,0.8)",  
+                pattern=dict(
+                    shape="/", 
+                    fgcolor="rgba(46,139,87,0.7)",
+                    size=8,
+                    solidity=0.958
+                )
+            ),
+            customdata=df_stacked_bar[[
+                "emissions_reduction_potential"
+            ]].values,
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Reduction Potential: %{customdata[0]} tCO₂e"
+            )
+        )
+    # fig.add_bar(
+    #     name='Reduction Potential (tCO2e)',
+    #     x=df_stacked_bar["sector"],
+    #     y=df_stacked_bar["emissions_reduction_potential"],
+    #     marker=dict(
+    #         color="rgba(46,139,87,0.8)",  
+    #         pattern=dict(
+    #             shape="/", 
+    #             fgcolor="rgba(46,139,87,0.7)",
+    #             size=8,
+    #             solidity=0.958
+    #         )
+    #     ),
+    #     customdata=df_stacked_bar["formatted_avoided"],
+    #     hovertemplate='<b>%{x}</b><br>Reduction Potential: %{customdata} tCO₂e<extra></extra>'
+    # )
 
 
     fig.update_layout(
         barmode='stack',
-        xaxis_title="Sector",
-        yaxis_title="Emissions (tCO2e)",
-        xaxis=dict(type='category'),
         height=600,
         margin=dict(t=30),
+
+        xaxis=dict(
+            type='category',
+            title=dict(
+                text="Sector",
+                font=dict(
+                    size=18,           # 👈 change x-axis title size here
+                    family="Sans-Serif",
+                )
+            ),
+            tickfont=dict(
+                size=13,              # 👈 tick labels size
+                family="Sans-Serif Italic"
+            )
+        ),
+
         yaxis=dict(
-            range=[0, df_stacked_bar["total"].max() * 1.15]
+            title=dict(
+                text="Emissions (tCO2e)",
+                font=dict(
+                    size=18,          # 👈 change y-axis title size here
+                    family="Sans-Serif",
+                )
+            ),
+            range=[0, df_stacked_bar["total"].max() * 1.15],
+            tickfont=dict(
+                size=13,              # 👈 y tick labels size
+                family="Sans-Serif"
+            )
         )
     )
 
@@ -696,7 +804,7 @@ def show_emissions_reduction_plan():
             text=[format_number_short(v) for v in df_stacked_bar["total"]],
             textposition="outside",
             textfont=dict(
-                size=13,             # increase size
+                size=14,             # increase size
                 family="Sans-Serif Italic" # makes it bold
             ),
             marker=dict(color="rgba(0,0,0,0)"),  # transparent bar
@@ -711,10 +819,10 @@ def show_emissions_reduction_plan():
 
     generic_text = "Intervention types vary. For example, in road transportation, Climate TRACE " \
                    "considered the emissions reduction potential from electrifying transport. For " \
-                   "elecricity, Climate TRACE considered the potential to replace fossil fuel power " \
+                   "electricity, Climate TRACE considered the potential to replace fossil fuel power " \
                    "plants with clean renewable energy. In agriculture, Climate TRACE considered replacing " \
                    "existing agricultural practices with lower-emitting practices. But in every case, " \
-                   "interventions are based on actual practices widely observed in other facilities, " \
+                   "reduction potential is based on actual practices widely observed in other facilities, " \
                    "not speculative new technologies."
     
     st.markdown(
@@ -866,7 +974,7 @@ def show_emissions_reduction_plan():
     st.markdown(
         f"""
         <div style="margin-top: 8px; font-size: 17px; line-height: 1.5;">
-            <em><strong>This analysis was based on estimated emissions and technology type of the most emitting facilities in {display_region_text if display_region_text != 'Global' else 'the world'}, including the following estimates:</strong></em>
+            <em><strong>This analysis was based on emissions and technology type of the highest emitting facilities in {display_region_text if display_region_text != 'Global' else 'the world'}, including the following estimates:</strong></em>
         </div>
         """,
         unsafe_allow_html=True
@@ -884,8 +992,8 @@ def show_emissions_reduction_plan():
 
     if use_ct_ers is True:
         sorting_options = [
-            "Asset Reduction Potential",
             "Net Reduction Potential",
+            "Asset Reduction Potential",
             "Asset Annual Emissions"
         ]
 
