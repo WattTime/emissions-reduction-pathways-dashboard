@@ -557,8 +557,8 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             SUM(ae.capacity) AS capacity,
             SUM(ae.emissions_quantity) AS emissions_quantity,
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
-            ae.emissions_reduced_at_asset AS reduced_emissions,
-            ae.total_emissions_reduced_per_year AS net_reduced_emissions
+            ae.emissions_reduced_at_asset AS asset_reduction_potential,
+            ae.total_emissions_reduced_per_year AS net_reduction_potential
         FROM '{annual_asset_path}' ae
         LEFT JOIN (
             SELECT DISTINCT
@@ -633,8 +633,8 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year):
             ae.strategy_description,
             ae.mechanism,
             COUNT(DISTINCT ae.asset_id) AS assets_impacted,
-            ROUND(SUM(ae.emissions_reduced_at_asset), 0) AS total_reduced_emissions,
-            ROUND(SUM(ae.total_emissions_reduced_per_year), 0) AS total_net_reduced_emissions
+            ROUND(SUM(ae.emissions_reduced_at_asset), 0) AS total_asset_reduction_potential,
+            ROUND(SUM(ae.total_emissions_reduced_per_year), 0) AS total_net_reduction_potential
         FROM '{annual_asset_path}' ae
         WHERE 
             ae.subsector = '{selected_subsector}'
@@ -644,7 +644,7 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year):
             ae.strategy_description,
             ae.mechanism
         ORDER BY 
-            total_net_reduced_emissions DESC
+            total_net_reduction_potential DESC
     '''
 
     return query_ers_sql
@@ -673,8 +673,8 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             SUM(ae.capacity) AS capacity,
             ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
-            ROUND(COALESCE(ae.emissions_reduced_at_asset, 0), 0) AS "reduced_emissions (t CO2e)",
-            ROUND(COALESCE(ae.total_emissions_reduced_per_year, 0), 0) AS "net_reduced_emissions (t CO2e)"
+            ROUND(COALESCE(ae.emissions_reduced_at_asset, 0), 0) AS "asset_reduction_potential (t CO2e)",
+            ROUND(COALESCE(ae.total_emissions_reduced_per_year, 0), 0) AS "net_reduction_potential (t CO2e)"
         FROM '{annual_asset_path}' ae
         LEFT JOIN (
             SELECT DISTINCT
