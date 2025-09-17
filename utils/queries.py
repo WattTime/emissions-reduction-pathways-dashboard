@@ -45,7 +45,6 @@ def build_sector_reduction_sql(use_ct_ers,
                                 annual_asset_path,
                                 dropdown_join,
                                 reduction_where_sql,
-                                ers_reduction_col=None,
                                 percentile_path=None,
                                 percentile_col=None,
                                 selected_proportion=None,
@@ -53,166 +52,129 @@ def build_sector_reduction_sql(use_ct_ers,
                             ):
     
     if use_ct_ers is True:
-        if ers_reduction_col == "emissions_reduced_at_asset":
+        sector_reduction_sql_string = f'''
+            WITH sector_mapping as (
+                SELECT distinct sector
+                    , subsector
 
-            sector_reduction_sql_string = f'''
+                FROM '{annual_asset_path}'
+            ),
             
+            induced as (
                 SELECT sector
-                    , sum(emissions_quantity) as emissions_quantity
-                    , sum(emissions_reduction_potential) emissions_reduction_potential
+                    , sum(induced_emissions) as induced_emissions
 
+                FROM (
+                        SELECT
+                            sector,
+                            sum(induced_emissions) AS induced_emissions
+                        FROM (
+                            SELECT distinct asset_id
+                                , sector_mapping.sector
+                                , induced_sector_1 AS induced_subsector
+                                , induced_sector_1_induced_emissions AS induced_emissions
+                            FROM '{annual_asset_path}' ae
+                            INNER JOIN sector_mapping
+                                on sector_mapping.subsector = ae.induced_sector_1
+                            {dropdown_join}
+
+                            {reduction_where_sql}
+                        )  
+
+                        group by sector
+                        
+                        UNION ALL
+                            
+                        SELECT
+                            sector,
+                            sum(induced_emissions) AS induced_emissions
+                        FROM (
+                            SELECT distinct asset_id
+                                , sector_mapping.sector
+                                , induced_sector_2 AS induced_subsector
+                                , induced_sector_2_induced_emissions AS induced_emissions
+                            FROM '{annual_asset_path}' ae
+                            INNER JOIN sector_mapping
+                                on sector_mapping.subsector = ae.induced_sector_2
+                            {dropdown_join}
+
+                            {reduction_where_sql}
+                        )  
+
+                        group by sector
+                            
+                        UNION ALL
+                            
+                        SELECT
+                            sector,
+                            sum(induced_emissions) AS induced_emissions
+                        FROM (
+                            SELECT distinct asset_id
+                                , sector_mapping.sector
+                                , induced_sector_3 AS induced_subsector
+                                , induced_sector_3_induced_emissions AS induced_emissions
+                            FROM '{annual_asset_path}' ae
+                            INNER JOIN sector_mapping
+                                on sector_mapping.subsector = cast(ae.induced_sector_3 as varchar)
+                            {dropdown_join}
+
+                            {reduction_where_sql}
+                        )  
+
+                        group by sector
+                    )
+
+                GROUP BY sector
+            ),
+
+            asset_reductions as (
+                SELECT sector
+                    , sum(emissions_quantity) emissions_quantity
+                    , sum(emissions_reduced_at_asset) emissions_reduced_at_asset
+            
                 FROM (
                     SELECT asset_id
                         , sector
-                        , sum(emissions_quantity) as emissions_quantity
-                        , {ers_reduction_col} as emissions_reduction_potential
+                        , subsector
+                        , sum(emissions_quantity) emissions_quantity
+                        , emissions_reduced_at_asset
 
                     FROM '{annual_asset_path}' ae
                     {dropdown_join}
 
                     {reduction_where_sql}
-                        -- and subsector not in ('non-residential-onsite-fuel-usage',
-                        --                     'residential-onsite-fuel-usage',
-                        --                     'oil-and-gas-production',
-                        --                     'oil-and-gas-transport'
-                        --                 )
-
 
                     GROUP BY asset_id
                         , sector
-                        , {ers_reduction_col}
-                    
-                ) asset_agg
+                        , subsector
+                        , emissions_reduced_at_asset
+                ) asset
 
                 GROUP BY sector
+            )
 
-            '''
-            # print(sector_reduction_sql_string)
-        
-        else:
-            sector_reduction_sql_string = f'''
-                WITH sector_mapping as (
-                    SELECT distinct sector
-                        , subsector
-
-                    FROM '{annual_asset_path}'
-                ),
+            SELECT 
+                COALESCE(ar.sector, induced.sector) AS sector,
+                ar.emissions_quantity,
+                induced.induced_emissions,
+                ar.emissions_reduced_at_asset,
                 
-                induced as (
-                    SELECT sector
-                        , sum(induced_emissions) as induced_emissions
-
-                    FROM (
-                            SELECT
-                                sector,
-                                sum(induced_emissions) AS induced_emissions
-                            FROM (
-                                SELECT distinct asset_id
-                                    , sector_mapping.sector
-                                    , induced_sector_1 AS induced_subsector
-                                    , induced_sector_1_induced_emissions AS induced_emissions
-                                FROM '{annual_asset_path}' ae
-                                INNER JOIN sector_mapping
-                                    on sector_mapping.subsector = ae.induced_sector_1
-                                {dropdown_join}
-
-                                {reduction_where_sql}
-                            )  
-
-                            group by sector
-                            
-                            UNION ALL
-                                
-                            SELECT
-                                sector,
-                                sum(induced_emissions) AS induced_emissions
-                            FROM (
-                                SELECT distinct asset_id
-                                    , sector_mapping.sector
-                                    , induced_sector_2 AS induced_subsector
-                                    , induced_sector_2_induced_emissions AS induced_emissions
-                                FROM '{annual_asset_path}' ae
-                                INNER JOIN sector_mapping
-                                    on sector_mapping.subsector = ae.induced_sector_2
-                                {dropdown_join}
-
-                                {reduction_where_sql}
-                            )  
-
-                            group by sector
-                                
-                            UNION ALL
-                                
-                            SELECT
-                                sector,
-                                sum(induced_emissions) AS induced_emissions
-                            FROM (
-                                SELECT distinct asset_id
-                                    , sector_mapping.sector
-                                    , induced_sector_3 AS induced_subsector
-                                    , induced_sector_3_induced_emissions AS induced_emissions
-                                FROM '{annual_asset_path}' ae
-                                INNER JOIN sector_mapping
-                                    on sector_mapping.subsector = cast(ae.induced_sector_3 as varchar)
-                                {dropdown_join}
-
-                                {reduction_where_sql}
-                            )  
-
-                            group by sector
-                        )
-
-                    GROUP BY sector
-                ),
-
-                asset_reductions as (
-                    SELECT sector
-                        , sum(emissions_quantity) emissions_quantity
-                        , sum(emissions_reduced_at_asset) emissions_reduced_at_asset
+                CASE 
+                    WHEN COALESCE(induced.induced_emissions, 0) > COALESCE(ar.emissions_reduced_at_asset, 0)
+                    THEN COALESCE(induced.induced_emissions, 0) - COALESCE(ar.emissions_reduced_at_asset, 0)
+                    ELSE 0 
+                END AS induced_emissions,
                 
-                    FROM (
-                        SELECT asset_id
-                            , sector
-                            , subsector
-                            , sum(emissions_quantity) emissions_quantity
-                            , emissions_reduced_at_asset
+                CASE 
+                    WHEN COALESCE(induced.induced_emissions, 0) < COALESCE(ar.emissions_reduced_at_asset, 0)
+                    THEN COALESCE(ar.emissions_reduced_at_asset, 0) - COALESCE(induced.induced_emissions, 0)
+                    ELSE 0 
+                END AS emissions_reduction_potential
 
-                        FROM '{annual_asset_path}' ae
-                        {dropdown_join}
-
-                        {reduction_where_sql}
-
-                        GROUP BY asset_id
-                            , sector
-                            , subsector
-                            , emissions_reduced_at_asset
-                    ) asset
-
-                    GROUP BY sector
-                )
-
-                SELECT 
-                    COALESCE(ar.sector, induced.sector) AS sector,
-                    ar.emissions_quantity,
-                    induced.induced_emissions,
-                    ar.emissions_reduced_at_asset,
-                    
-                    CASE 
-                        WHEN COALESCE(induced.induced_emissions, 0) > COALESCE(ar.emissions_reduced_at_asset, 0)
-                        THEN COALESCE(induced.induced_emissions, 0) - COALESCE(ar.emissions_reduced_at_asset, 0)
-                        ELSE 0 
-                    END AS induced_emissions,
-                    
-                    CASE 
-                        WHEN COALESCE(induced.induced_emissions, 0) < COALESCE(ar.emissions_reduced_at_asset, 0)
-                        THEN COALESCE(ar.emissions_reduced_at_asset, 0) - COALESCE(induced.induced_emissions, 0)
-                        ELSE 0 
-                    END AS emissions_reduction_potential
-
-                FROM asset_reductions ar
-                FULL OUTER JOIN induced
-                    on induced.sector = ar.sector
-            '''
+            FROM asset_reductions ar
+            FULL OUTER JOIN induced
+                on induced.sector = ar.sector
+        '''
 
             # print(sector_reduction_sql_string)
     
@@ -271,6 +233,89 @@ def build_sector_reduction_sql(use_ct_ers,
 
     
     return sector_reduction_sql_string
+
+
+def build_sector_induction_sql(annual_asset_path,
+                                dropdown_join,
+                                reduction_where_sql
+                            ):
+
+    sector_induction_sql_string = f'''
+        WITH sector_mapping AS (
+            SELECT DISTINCT sector, subsector
+            FROM '{annual_asset_path}'
+        ),
+
+        induced_raw AS (
+            SELECT
+                ae.asset_id,
+                ae.sector AS inducing_sector,
+                sm.sector  AS receiving_sector,
+                ae.induced_sector_1_induced_emissions AS induced_emissions
+            FROM '{annual_asset_path}' ae
+            INNER JOIN sector_mapping sm 
+                ON sm.subsector = ae.induced_sector_1
+            {dropdown_join}
+
+            {reduction_where_sql}
+
+            UNION ALL
+            
+            SELECT
+                ae.asset_id,
+                ae.sector,
+                sm.sector,
+                ae.induced_sector_2_induced_emissions
+            FROM '{annual_asset_path}' ae
+            INNER JOIN sector_mapping sm 
+                ON sm.subsector = ae.induced_sector_2
+            {dropdown_join}
+
+            {reduction_where_sql}
+
+            UNION ALL
+            
+            SELECT
+                ae.asset_id,
+                ae.sector,
+                sm.sector,
+                ae.induced_sector_3_induced_emissions 
+            FROM '{annual_asset_path}' ae
+            INNER JOIN sector_mapping sm 
+                ON sm.subsector = CAST(ae.induced_sector_3 AS VARCHAR)
+            {dropdown_join}
+
+            {reduction_where_sql}
+        ),
+
+        induced_annual_per_asset AS (
+            SELECT
+                asset_id,
+                inducing_sector,
+                receiving_sector,
+                MAX(induced_emissions) AS induced_emissions_annual
+            
+            FROM induced_raw
+            
+            GROUP BY asset_id
+                , inducing_sector
+                , receiving_sector
+        )
+
+        SELECT
+            receiving_sector,
+            inducing_sector,        
+            SUM(induced_emissions_annual) AS induced_emissions
+        
+        FROM induced_annual_per_asset
+        
+        GROUP BY inducing_sector, 
+            receiving_sector
+
+        ORDER BY receiving_sector
+    '''
+
+    return sector_induction_sql_string
 
 
 '''
