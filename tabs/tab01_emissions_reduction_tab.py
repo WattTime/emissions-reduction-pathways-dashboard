@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import duckdb
+import json
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -563,38 +564,34 @@ def show_emissions_reduction_plan():
     st.markdown("### Sector Reduction Opportunities (Annual)")
 
     if use_ct_ers is True:
-        ers_method = st.radio(
-            "Choose Reduction Type",
-            ["Net Reductions","Asset Reductions"],
-            horizontal=True,
-            help=(
-                "**Net (Consequential) Reductions**: System-wide impact, accounting for emissions induced in other sectors. "
-                "For example, Switching from a blast furnace to an electric arc furnace reduces on-site emissions, but may increase electricity sector emissions.\n\n"
-                "Net reductions reflect the total outcome across sectors."
-                
-                "**Asset (Allocational) Reductions**: Emissions reduced directly at the asset where the solution is applied. "
-                "At a steel plant, for example, a blast furnace that shuts down shows reductions only at that steelmaking facility."
-            )
+
+        st.info(
+            "The data in the chart below represents **Consequential (Net) Emissions Reduction Opportunity**. "
+            "This measure reflects the *system-wide impact*, which combines a given sector's direct asset reductions with emissions "
+            "induced (added or avoided) from other sectors when emissions reducing solutions are implemented. The formula for this is as follows:\n\n"
+            "| `Sector Reduction Potential = Direct Asset Reductions – Net Inductions` |\n"
+            "|----------------------------------------------------------------------|\n\n"
+            "Inductions capture how actions in one sector ripple into others. For example, switching from a blast "
+            "furnace to an electric arc furnace reduces on-site steel emissions (asset reduction) but increases "
+            "electricity demand, which shows up as an **emissions induction** into the power sector. "
+            "Conversely, some inductions can be numerically **negative** (as with power): adding renewables to the grid does not "
+            "count as an asset-level reduction, but it reduces emissions in the power sector overall. In this case, the negative induction "
+            "contributes positively to the system-wide outcome."
         )
 
-        if ers_method == "Net Reductions":
-            ers_reduction_col = "total_emissions_reduced_per_year"
-        else:
-            ers_reduction_col = "emissions_reduced_at_asset"
-    else:
-        ers_method = None
-
-    # st.plotly_chart(fig, use_container_width=True)
-
-
-    if use_ct_ers is True:
         query_sector_reductions = build_sector_reduction_sql(use_ct_ers=use_ct_ers,
                                                              annual_asset_path=annual_asset_path,
                                                              dropdown_join=dropdown_join,
                                                              reduction_where_sql=reduction_where_sql,
-                                                             ers_reduction_col=ers_reduction_col
                                                             )
         
+        query_sector_inductions = build_sector_induction_sql(annual_asset_path=annual_asset_path,
+                                                             dropdown_join=dropdown_join,
+                                                             reduction_where_sql=reduction_where_sql
+                                                            )
+        
+        df_induced = con.execute(query_sector_inductions).df()
+    
     else:
         query_sector_reductions = build_sector_reduction_sql(use_ct_ers=use_ct_ers,
                                                              annual_asset_path=annual_asset_path,
@@ -609,34 +606,34 @@ def show_emissions_reduction_plan():
 
     df_stacked_bar = con.execute(query_sector_reductions).df()
 
-    # print(df_stacked_bar)
-
     if use_ct_ers is True:
         df_stacked_bar.drop(df_stacked_bar[df_stacked_bar["sector"] == "fossil-fuel-operations"].index, inplace=True)
         # print(df_stacked_bar)
 
-    print(use_ct_ers)
-    print(ers_method)
-    if use_ct_ers and ers_method == "Net Reductions":
+    if use_ct_ers:
+        
         df_stacked_bar = pd.merge(
             df_pie[["sector","country_emissions_quantity"]],
-            df_stacked_bar[["sector","emissions_reduction_potential",
+            df_stacked_bar[["sector",
+                            "emissions_reduction_potential",
                             "emissions_reduced_at_asset", 
                             "induced_emissions"]],
             on="sector",
             how="outer"
         )
 
-        # print("You hit the correct if statement")
+
+        # hover_texts = get_consequetial_hover_text(df_induced)
+
     else:
         df_stacked_bar = pd.merge(
             df_pie[["sector","country_emissions_quantity"]],
-            df_stacked_bar[["sector","emissions_reduction_potential",
+            df_stacked_bar[["sector",
+                            "emissions_reduction_potential",
                             ]],
             on="sector",
             how="outer"
         )
-        # print("INCORRECT")
 
     df_stacked_bar["emissions_reduction_potential"] = df_stacked_bar["emissions_reduction_potential"].fillna(0)
 
@@ -663,8 +660,15 @@ def show_emissions_reduction_plan():
 
     df_stacked_bar["formatted_static"] = df_stacked_bar["static_emissions_q"].apply(format_number_short)
     df_stacked_bar["formatted_avoided"] = df_stacked_bar["emissions_reduction_potential"].apply(format_number_short)
+
+    if use_ct_ers:
+        df_stacked_bar["induced_emissions"] = df_stacked_bar["induced_emissions"].fillna(0)
+        df_stacked_bar["emissions_reduced_at_asset"] = df_stacked_bar["emissions_reduced_at_asset"].fillna(0)
+
+        consequential_json = get_reduction_induction_json(df_stacked_bar, df_induced)
+        print(consequential_json)
     
-    if use_ct_ers is True and ers_method == "Net Reductions":
+    if use_ct_ers:
         df_stacked_bar["induced_emissions"] = (
             df_stacked_bar["induced_emissions"]
                 .fillna(0)                           
@@ -680,22 +684,28 @@ def show_emissions_reduction_plan():
 
     fig = go.Figure()
 
-    fig.add_bar(
-        name='Post-Reduction Emissions',
-        x=df_stacked_bar["sector"],
-        y=df_stacked_bar["static_emissions_q"],
-        marker_color="#707070",
-        customdata=df_stacked_bar["formatted_static"],
-        hovertemplate='<b>%{x}</b><br>Post-Reduction Emissions: %{customdata} tCO₂e<extra></extra>'
-    )
+    if use_ct_ers:
+    
+        sectors = [item["sector"] for item in consequential_json]
+        static_vals = [item["static_emissions"] for item in consequential_json]
+        reduction_vals = [item["reduction_potential"] for item in consequential_json]
+        hover_texts = [item["hover_text"] for item in consequential_json]
 
-    # print(df_stacked_bar)
-    # print(df_stacked_bar)
-    if ers_method == "Net Reductions":
+        # gray static emissions bar
         fig.add_bar(
-            name='Reduction Potential (tCO2e)',
-            x=df_stacked_bar["sector"],
-            y=df_stacked_bar["emissions_reduction_potential"],
+            name="Post-Reduction Emissions",
+            x=sectors,
+            y=static_vals,
+            marker_color="#707070",
+            customdata=[item["static_emissions_formatted"] for item in consequential_json],
+            hovertemplate="<b>%{x}</b><br>Post-Reduction Emissions: %{customdata} tCO₂e<extra></extra>"
+        )
+
+        # green reduction potential bar
+        fig.add_bar(
+            name="Reduction Potential (tCO₂e)",
+            x=sectors,
+            y=reduction_vals,
             marker=dict(
                 color="rgba(46,139,87,0.8)",  
                 pattern=dict(
@@ -705,24 +715,21 @@ def show_emissions_reduction_plan():
                     solidity=0.958
                 )
             ),
-            
-            # Pack multiple fields into customdata
-            customdata=df_stacked_bar[[
-                "formatted_avoided", 
-                "emissions_reduced_at_asset", 
-                "induced_emissions"
-            ]].values,
-            hovertemplate=(
-                "<b>%{x}</b><br>"
-                "Reduction Potential: %{customdata[0]} tCO₂e"
-                "<br><br>"  # blank line
-                "<span style='color:green'>Asset Reductions: %{customdata[1]} tCO₂e</span><br>"
-                "<span style='color:red'>Induced Emissions: %{customdata[2]} tCO₂e</span>"
-                "<extra></extra>"
-            )
+            customdata=hover_texts,
+            hovertemplate="%{customdata}<extra></extra>"  # rich HTML box
         )
+
     else:
         fig.add_bar(
+            name='Post-Reduction Emissions',
+            x=df_stacked_bar["sector"],
+            y=df_stacked_bar["static_emissions_q"],
+            marker_color="#707070",
+            customdata=df_stacked_bar["formatted_static"],
+            hovertemplate='<b>%{x}</b><br>Post-Reduction Emissions: %{customdata} tCO₂e<extra></extra>'
+        )
+
+        fig.add_bar(
             name='Reduction Potential (tCO2e)',
             x=df_stacked_bar["sector"],
             y=df_stacked_bar["emissions_reduction_potential"],
@@ -736,29 +743,13 @@ def show_emissions_reduction_plan():
                 )
             ),
             customdata=df_stacked_bar[[
-                "emissions_reduction_potential"
+                "formatted_avoided"
             ]].values,
             hovertemplate=(
                 "<b>%{x}</b><br>"
                 "Reduction Potential: %{customdata[0]} tCO₂e"
             )
         )
-    # fig.add_bar(
-    #     name='Reduction Potential (tCO2e)',
-    #     x=df_stacked_bar["sector"],
-    #     y=df_stacked_bar["emissions_reduction_potential"],
-    #     marker=dict(
-    #         color="rgba(46,139,87,0.8)",  
-    #         pattern=dict(
-    #             shape="/", 
-    #             fgcolor="rgba(46,139,87,0.7)",
-    #             size=8,
-    #             solidity=0.958
-    #         )
-    #     ),
-    #     customdata=df_stacked_bar["formatted_avoided"],
-    #     hovertemplate='<b>%{x}</b><br>Reduction Potential: %{customdata} tCO₂e<extra></extra>'
-    # )
 
 
     fig.update_layout(
@@ -985,9 +976,9 @@ def show_emissions_reduction_plan():
     # ------------------------------- Asset Table ---------------------------------
     st.markdown("### Top 100 Assets by Annual Reduction Potential")
 
-    asset_sorting_help = ("**Asset Reduction Potential:** Top 100 assets by direct emissions reduction at the asset alone.\n\n"
-        "**Net Reduction Potential:** Top 100 assets by net emissions reduction potential, "
+    asset_sorting_help = ("**Net Reduction Potential:** Top 100 assets by net emissions reduction potential, "
         "including emissions induced in other sectors from executing the respective reduction strategy.\n\n"
+        "**Asset Reduction Potential:** Top 100 assets by direct emissions reduction at the asset alone.\n\n"
         "**Asset Annual Emissions:** Top 100 highest emitting assets by annual (2024) emissions.")
 
     if use_ct_ers is True:

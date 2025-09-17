@@ -871,3 +871,167 @@ def return_sector_type(sector):
     elif sector in ['agriculture', 'buildings', 'fluorinated-gases', 'forestry-and-land-use', 'transportation']:
         sector_type = 'raster'
     return sector_type
+
+
+
+def get_reduction_induction_json(df_stacked_bar, df_induced):
+    def safe_format_number(x):
+        if x is None or (isinstance(x, float) and math.isnan(x)):
+            return "0"
+        return format_number_short(x)
+
+    summary = []
+
+    for _, row in df_stacked_bar.iterrows():
+        sector = row["sector"]
+
+        # gather inductions
+        sector_inductions = df_induced[df_induced["receiving_sector"] == sector]
+        inductions_list = []
+        for _, ind in sector_inductions.iterrows():
+            if ind["induced_emissions"] is not None and not math.isnan(ind["induced_emissions"]):
+                inductions_list.append({
+                    "inducing_sector": ind["inducing_sector"],
+                    "induced_emissions": ind["induced_emissions"],
+                    "formatted": safe_format_number(ind["induced_emissions"])
+                })
+
+        # core values
+        asset_reductions = row.get("emissions_reduced_at_asset", 0) or 0
+        reduction_potential = row.get("emissions_reduction_potential", 0) or 0
+        static_emissions = row.get("static_emissions_q", 0) or 0
+
+        asset_reductions_fmt = safe_format_number(asset_reductions)
+        reduction_potential_fmt = safe_format_number(reduction_potential)
+        static_emissions_fmt = safe_format_number(static_emissions)
+
+        # total inductions
+        total_inductions = sum(
+            ind["induced_emissions"] for ind in inductions_list if ind["induced_emissions"] is not None
+        )
+        total_inductions_fmt = safe_format_number(total_inductions)
+        total_inductions_color = "red" if total_inductions >= 0 else "green"
+
+        # build hover text lines
+        hover_lines = [f"<b>{sector}</b>"]
+
+        # Asset reductions (moved down with space)
+        hover_lines.append("&nbsp;")
+        hover_lines.append(
+            #f"<span style='color:green; font-size:13px; font-weight:bold'>{asset_reductions_fmt}</span> "
+            f"<span style='color:green; font-size:13px; font-weight:bold'>&nbsp;{asset_reductions_fmt}</span>&nbsp;&nbsp;&nbsp;<span style='font-size:13px; font-weight:bold'>Asset Reductions</span>"
+        )
+
+        # blank line before inductions
+        hover_lines.append("&nbsp;")
+
+        # Inductions
+        if inductions_list:
+            hover_lines.append(
+                f"<span style='color:{total_inductions_color}; font-size:13px; font-weight:bold'>{total_inductions_fmt}</span> "
+                f"<span style='font-size:13px; font-weight:bold'>&nbsp;&nbsp;Net Inductions:</span>"
+            )
+            for ind in inductions_list:
+                val = ind["induced_emissions"]
+                if val is None or math.isnan(val):
+                    continue
+                if val >= 0:
+                    hover_lines.append(
+                        f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span style='color:red'>{ind['formatted']}</span>) <i>{ind['inducing_sector']}</i>"
+                    )
+                else:
+                    hover_lines.append(
+                        f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span style='color:green'>{ind['formatted']}</span>) <i>{ind['inducing_sector']}</i>"
+                    )
+        else:
+            hover_lines.append(
+                f"<span style='color:green; font-size:13px; font-weight:bold'>&nbsp;0&nbsp;&nbsp;</span> "
+                f"<span style='font-size:13px; font-weight:bold'>Net Inductions</span>"
+            )
+
+        # formula separator
+        hover_lines.append("────────────────────")
+
+        # Net consequential reductions (bigger, bold, first thing your eyes see)
+        hover_lines.append(
+            f"<span style='color:green; font-size:14px; font-weight:bold'>✅ {reduction_potential_fmt} Net Reduction Opportunity</span>"
+        )
+
+        # join with <br>
+        hover_text = "<br>".join(hover_lines)
+
+        summary.append({
+            "sector": sector,
+            "asset_reductions": asset_reductions,
+            "asset_reductions_formatted": asset_reductions_fmt,
+            "reduction_potential": reduction_potential,
+            "reduction_potential_formatted": reduction_potential_fmt,
+            "static_emissions": static_emissions,
+            "static_emissions_formatted": static_emissions_fmt,
+            "inductions": inductions_list,
+            "hover_text": hover_text
+        })
+
+    return summary
+
+
+def get_consequetial_hover_text(df_induced):
+
+    # Format values up front
+    df_induced["formatted_asset_reductions"] = df_induced["emissions_reduced_at_asset"].apply(
+        lambda x: format_number_short(x) if pd.notnull(x) else None
+    )
+    df_induced["formatted_reduction_potential"] = df_induced["emissions_reduction_potential"].apply(
+        lambda x: format_number_short(x) if pd.notnull(x) else None
+    )
+    df_induced["formatted_induced_emissions"] = df_induced["induced_emissions"].apply(
+        lambda x: format_number_short(x) if pd.notnull(x) else None
+    )
+
+    # Build induction lists grouped by receiving sector
+    inductions_grouped = (
+        df_induced.dropna(subset=["inducing_sector", "induced_emissions"])
+        .groupby("receiving_sector")
+        .apply(lambda g: [
+            {
+                "inducing_sector": row["inducing_sector"],
+                "induced_emissions": row["formatted_induced_emissions"],
+            }
+            for _, row in g.iterrows()
+        ])
+        .to_dict()
+    )
+
+    # Attach inductions safely (fallback to empty list)
+    df_summary = (
+        df_induced.drop_duplicates(subset=["sector"])
+        .assign(inductions=lambda d: d["sector"].map(inductions_grouped).apply(lambda x: x if isinstance(x, list) else []))
+    )
+
+    hover_texts = []
+    for _, row in df_induced.iterrows():
+        parts = []
+        
+        # Asset reductions
+        if pd.notnull(row["formatted_asset_reductions"]) and row["formatted_asset_reductions"] not in ["0", None]:
+            parts.append(f"+ Asset Reductions: {row['formatted_asset_reductions']} tCO₂e")
+        
+        # Inductions
+        sector_inductions = df_induced[
+            (df_induced["receiving_sector"] == row["sector"]) & 
+            (df_induced["induced_emissions"].notnull())
+        ]
+        for _, ind in sector_inductions.iterrows():
+            if ind["formatted_induced_emissions"] not in ["0", None]:
+                parts.append(f"+ {ind['inducing_sector']}: {ind['formatted_induced_emissions']} tCO₂e")
+        
+        # Combine into hover text
+        formula = "<br>".join(parts)
+        text = (
+            f"<b>{row['sector']}</b><br>"
+            f"{formula}<br>"
+            f"= <b style='color:green'>{row['formatted_reduction_potential']} tCO₂e</b>"
+        )
+        hover_texts.append(text)
+
+    return hover_texts
