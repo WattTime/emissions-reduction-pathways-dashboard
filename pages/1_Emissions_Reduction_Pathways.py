@@ -7,8 +7,22 @@ from utils.utils import get_release_version
 from tabs.tab01_emissions_reduction_tab import show_emissions_reduction_plan
 from tabs.tab02_abatement_curve_tab import show_abatement_curve
 
-
 st.set_page_config(layout="wide")
+st.markdown(
+    """
+    <style>
+    /* Hide the sidebar completely */
+    section[data-testid="stSidebar"] {
+        display: none;
+    }
+    /* Hide the sidebar collapse/expand arrow */
+    [data-testid="collapsedControl"] {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # load CT logo
 def get_base64_of_bin_file(bin_file_path):
@@ -40,10 +54,12 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["Reduction Opportunities", "Monthly Trends"])
 
+tab1, tab2 = st.tabs(["Reduction Opportunities", "Abatement Curve"])
 with tab1:
     show_emissions_reduction_plan()
-    # pass
+
 with tab2:
     show_abatement_curve()
+
+
