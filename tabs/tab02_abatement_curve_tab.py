@@ -298,9 +298,11 @@ def show_abatement_curve():
     # dict_color, dict_lines = define_color_lines(selected_metric)
     # fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
 
-    curve_key = f"abatement_curve_{selected_group}_{selected_color}_{selected_metric}"
+    curve_key = f"abatement_curve_{selected_sector}_{selected_subsector}_{selected_gas}_{selected_year}_{selected_group}_{selected_color}_{selected_metric}"
+    # print(curve_key)
 
     if curve_key not in st.session_state:
+        print("NOT CACHEING")
         dict_color, dict_lines = define_color_lines(selected_metric)
         st.session_state[curve_key] = plot_abatement_curve(
             df_assets,
