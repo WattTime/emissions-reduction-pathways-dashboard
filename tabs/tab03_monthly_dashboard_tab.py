@@ -766,3 +766,5 @@ def show_monthly_dashboard():
         )
 
     con.close()
+
+    print("Tab 3 has run!!!!!!")

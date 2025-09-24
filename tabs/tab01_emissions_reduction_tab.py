@@ -58,7 +58,9 @@ def show_emissions_reduction_plan():
                 "similar assets within the same subsector. Results are shown as global "
                 "or country-level percentiles, helping identify how efficient or polluting an asset is relative "
                 "to its peers, and how much room there is for improvement."
-            )
+            ),
+            key="reduction_method_RO",
+            on_change=mark_ro_recompute
         )
 
     with year_col:
@@ -66,7 +68,8 @@ def show_emissions_reduction_plan():
             label="", 
             value=" Data Year:  2024", 
             disabled=True, 
-            key="static_year"
+            key="static_year_RO",
+            on_change=mark_ro_recompute
         )
 
     with download_col:
@@ -106,7 +109,8 @@ def show_emissions_reduction_plan():
         selected_region = st.selectbox(
             "Region/Country", 
             region_options + unique_countries, 
-            key="selected_region"
+            key="selected_region_RO",
+            on_change=mark_ro_recompute
         )
 
         region_condition = map_region_condition(selected_region)
@@ -132,8 +136,9 @@ def show_emissions_reduction_plan():
                 "State / Province",
                 state_province_options,
                 disabled=True,
-                key="state_province_selector",
-                index=0
+                key="state_province_selector_RO",
+                index=0,
+                on_change=mark_ro_recompute
             )
         else:
             state_province_options = ['-- Select State / Province --'] + sorted(
@@ -145,7 +150,7 @@ def show_emissions_reduction_plan():
                 "State / Province",
                 state_province_options,
                 disabled=False,
-                key="state_province_selector",
+                key="state_province_selector_RO",
                 index=0,
                 on_change=reset_city
             )
@@ -158,8 +163,9 @@ def show_emissions_reduction_plan():
                 "County / District",
                 county_district_options,
                 disabled=True,
-                key="county_district_selector",
-                index=0
+                key="county_district_selector_RO",
+                index=0,
+                on_change=mark_ro_recompute
             )
         else:
             if selected_state_province and not selected_state_province.startswith("--"):
@@ -190,7 +196,7 @@ def show_emissions_reduction_plan():
                 "County / District",
                 county_district_options,
                 disabled=False,
-                key="county_district_selector",
+                key="county_district_selector_RO",
                 index=0,
                 on_change=reset_city
             )
@@ -203,8 +209,9 @@ def show_emissions_reduction_plan():
                 "City",
                 city_options,
                 disabled=True,
-                key="city_selector",
-                index=0
+                key="city_selector_RO",
+                index=0,
+                on_change=mark_ro_recompute
             )
         else:
             def duckdb_safe_val(v):
@@ -232,7 +239,7 @@ def show_emissions_reduction_plan():
                 "City",
                 city_options,
                 disabled=False,
-                key="city_selector",
+                key="city_selector_RO",
                 index=0,
                 on_change=reset_state_and_county
             )
@@ -260,7 +267,8 @@ def show_emissions_reduction_plan():
                     benchmarking_options,
                     help=benchmarking_help,
                     disabled=use_ct_ers,
-                    key="benchmarking_selector"
+                    key="benchmarking_selector_RO",
+                    on_change=mark_ro_recompute
                 )
 
             else:
@@ -269,7 +277,8 @@ def show_emissions_reduction_plan():
                     "Global",
                     disabled=True,
                     help=benchmarking_help,
-                    key="benchmarking_selector"
+                    key="benchmarking_selector_RO",
+                    on_change=mark_ro_recompute
                 )
 
             if selected_benchmark == "Global":
@@ -303,7 +312,8 @@ def show_emissions_reduction_plan():
                 percentile_options,
                 help=percentile_help,
                 disabled=use_ct_ers,
-                key="percentile_selector"
+                key="percentile_selector_RO",
+                on_change=mark_ro_recompute
             )
 
             percentile_col = map_percentile_col(selected_percentile)
@@ -324,7 +334,9 @@ def show_emissions_reduction_plan():
                 help=proportion_help,
                 disabled=use_ct_ers,
                 step=1,
-                format="%d%%"
+                format="%d%%",
+                key="proportion_scale_bar_RO",
+                on_change=mark_ro_recompute
             )
     
     # --------- Calculate Display Text Based on Selections ----------
@@ -666,7 +678,7 @@ def show_emissions_reduction_plan():
         df_stacked_bar["emissions_reduced_at_asset"] = df_stacked_bar["emissions_reduced_at_asset"].fillna(0)
 
         consequential_json = get_reduction_induction_json(df_stacked_bar, df_induced)
-        print(consequential_json)
+        # print(consequential_json)
     
     if use_ct_ers:
         df_stacked_bar["induced_emissions"] = (
@@ -992,8 +1004,9 @@ def show_emissions_reduction_plan():
             "Sorting Preference",
             sorting_options, 
             horizontal=True,
-            key="asset_sorting_preference",
-            help=asset_sorting_help
+            key="asset_sorting_preference_RO",
+            help=asset_sorting_help,
+            on_change=mark_ro_recompute
         )
 
         asset_table_sql = build_asset_reduction_sql(use_ct_ers=use_ct_ers,
@@ -1011,8 +1024,9 @@ def show_emissions_reduction_plan():
             "Sorting Preference",
             sorting_options,
             horizontal=True,
-            key="asset_sorting_preference",
-            help=asset_sorting_help
+            key="asset_sorting_preference_RO",
+            help=asset_sorting_help,
+            on_change=mark_ro_recompute
         )
 
         asset_table_sql = build_asset_reduction_sql(use_ct_ers=use_ct_ers,
@@ -1110,4 +1124,6 @@ def show_emissions_reduction_plan():
         )
 
     con.close()
+
+    print("TAB 1 HAS RUN!!!!")
     
