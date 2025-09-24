@@ -40,15 +40,6 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# def mark_ro_recompute():
-#     st.session_state.needs_recompute_reduction_opportunities = True
-
-# def mark_ac_recompute():
-#     st.session_state.needs_recompute_abatement_curve = True
-
-# def mark_mt_recompute():
-#     st.session_state.needs_recompute_monthly_trends = True
-
 if "needs_recompute_reduction_opportunities" not in st.session_state:
     st.session_state.needs_recompute_reduction_opportunities = True
 
@@ -61,17 +52,21 @@ if "needs_recompute_monthly_trends" not in st.session_state:
 
 tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Abatement Curve", "Monthly Trends"])
 with tab1:
-    if st.session_state.needs_recompute_reduction_opportunities:
-        show_emissions_reduction_plan()
-        st.session_state.needs_recompute_reduction_opportunities = False
+    # if st.session_state.needs_recompute_reduction_opportunities:
+    #     show_emissions_reduction_plan()
+    #     st.session_state.needs_recompute_reduction_opportunities = False
+    show_emissions_reduction_plan()
 
 with tab2:
-    if st.session_state.needs_recompute_abatement_curve:
-        show_abatement_curve()
-        st.session_state.needs_recompute_abatement_curve = False
+    # if st.session_state.needs_recompute_abatement_curve:
+    #     show_abatement_curve()
+    #     st.session_state.needs_recompute_abatement_curve = False
+    show_abatement_curve()
 
 with tab3:
-    if st.session_state.needs_recompute_monthly_trends:
-        show_monthly_dashboard()
-        st.session_state.needs_recompute_monthly_trends = False
-
+    # if st.session_state.needs_recompute_monthly_trends:
+    #     show_monthly_dashboard()
+    #     st.session_state.needs_recompute_monthly_trends = False
+    show_monthly_dashboard()
+# import json
+# print(json.dumps(st.session_state.to_dict(), indent=2))
