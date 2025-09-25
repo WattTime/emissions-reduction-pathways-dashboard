@@ -758,7 +758,7 @@ def show_monthly_dashboard():
 
         # Fill in the placeholder with the actual download button
         download_placeholder.download_button(
-            label="   ⬇   Download Chart Data   ",
+            label="   ⬇   Download Data   ",
             data=excel_file,
             file_name="climate_trace_dashboard_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

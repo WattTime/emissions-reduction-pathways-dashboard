@@ -2,9 +2,15 @@ import streamlit as st
 import base64
 
 st.set_page_config(layout="wide")
+
+st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(
     """
     <style>
+    /* Remove default top padding */
+    .block-container {
+        padding-top: 1rem; /* adjust this number (default ~6rem) */
+    }
     /* Hide the sidebar completely */
     section[data-testid="stSidebar"] {
         display: none;
@@ -12,6 +18,19 @@ st.markdown(
     /* Hide the sidebar collapse/expand arrow */
     [data-testid="collapsedControl"] {
         display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# makes home page un-scrollable
+st.markdown(
+    """
+    <style>
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+        height: 100vh;
+        overflow: hidden;
     }
     </style>
     """,
@@ -87,7 +106,7 @@ with col1:
             <div class="tool-card">
                 <div class="tool-icon">📉</div>
                 <div class="tool-title">Emissions Reduction Pathways</div>
-                <div class="tool-desc">Explore reduction pathways across sectors, regions, and assets.</div>
+                <div class="tool-desc">Discover reduction opportunities across sectors, regions, and assets.</div>
             </div>
         </a>
         """,
