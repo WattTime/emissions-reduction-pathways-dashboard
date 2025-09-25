@@ -26,14 +26,16 @@ def show_emissions_reduction_plan():
     country_subsector_totals_path = CONFIG['country_subsector_totals_path']
     percentile_path = CONFIG['percentile_path']
     region_options = CONFIG['region_options']
+    gadm_0_path = CONFIG['gadm_0_path']
 
     con = duckdb.connect()
 
-    unique_countries = sorted(
-        row[0] for row in con.execute(
-            f"SELECT DISTINCT country_name FROM '{country_subsector_totals_path}' WHERE country_name IS NOT NULL"
+    country_rows = con.execute(
+            f"SELECT DISTINCT country_name, iso3_country FROM '{gadm_0_path}' WHERE country_name IS NOT NULL order by country_name"
         ).fetchall()
-    )
+
+    country_map = {row[0]: row[1] for row in country_rows}
+    unique_countries = list(country_map.keys())
 
     selected_year = 2024
 
@@ -113,7 +115,7 @@ def show_emissions_reduction_plan():
             on_change=mark_ro_recompute
         )
 
-        region_condition = map_region_condition(selected_region)
+        region_condition = map_region_condition(selected_region, country_map)
 
     if region_condition is not None:
         col = region_condition['column_name']
@@ -1125,5 +1127,4 @@ def show_emissions_reduction_plan():
 
     con.close()
 
-    print("TAB 1 HAS RUN!!!!")
     

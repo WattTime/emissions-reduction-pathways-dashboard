@@ -24,19 +24,18 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# makes home page un-scrollable
+# disable scrolling
 st.markdown(
     """
     <style>
     html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
-        height: 100vh;
-        overflow: hidden;
+        height: 100vh !important;
+        overflow: hidden !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
-
 
 # ---- Load logo ----
 def get_base64_logo():
@@ -50,7 +49,7 @@ st.markdown(
     f"""
     <div style='display: flex; align-items: center; justify-content: center;'>
         <img src="data:image/png;base64,{logo_base64}" width="70" style="margin-right: 15px;" />
-        <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Tools Hub</h1>
+        <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Toolkit</h1>
     </div>
     """,
     unsafe_allow_html=True
@@ -135,7 +134,7 @@ with col1:
         <a href="https://climatetrace.org/explore#admin=&gas=co2e&year=2024&timeframe=100&sector=&asset=" target="_blank" style="text-decoration: none;">
             <div class="tool-card">
                 <div class="tool-icon">🗺️</div>
-                <div class="tool-title">Explore the Map</div>
+                <div class="tool-title">Map Explorer</div>
                 <div class="tool-desc">Browse global emissions data interactively on the Climate TRACE world map.</div>
             </div>
         </a>
@@ -176,7 +175,7 @@ with col2:
 
     st.markdown(
         """
-        <a href="https://climatetrace.org/plumes" target="_blank" style="text-decoration: none;">
+        <a href="https://climatetrace.org/air-pollution" target="_blank" style="text-decoration: none;">
             <div class="tool-card">
                 <div class="tool-icon">🏭</div>
                 <div class="tool-title">Air Pollution Explorer</div>

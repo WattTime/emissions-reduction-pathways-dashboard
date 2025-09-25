@@ -384,5 +384,3 @@ def show_abatement_curve():
             "asset_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized"),
             "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
     )
-
-    print("Tab 2 has run!!!!!")

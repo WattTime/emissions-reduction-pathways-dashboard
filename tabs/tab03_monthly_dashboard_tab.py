@@ -21,6 +21,7 @@ def show_monthly_dashboard():
     country_subsector_stats_path = CONFIG['country_subsector_stats_path']
     country_subsector_totals_path = CONFIG['country_subsector_totals_path']
     region_options = CONFIG['region_options']
+    gadm_0_path = CONFIG['gadm_0_path']
 
     con = duckdb.connect()
 
@@ -33,11 +34,12 @@ def show_monthly_dashboard():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    unique_countries = sorted(
-        row[0] for row in con.execute(
-            f"SELECT DISTINCT country_name FROM '{country_subsector_totals_path}' WHERE country_name IS NOT NULL"
+    country_rows = con.execute(
+            f"SELECT DISTINCT country_name, iso3_country FROM '{gadm_0_path}' WHERE country_name IS NOT NULL order by country_name"
         ).fetchall()
-    )
+
+    country_map = {row[0]: row[1] for row in country_rows}
+    unique_countries = list(country_map.keys())
 
     df_stats_all = pd.read_parquet(country_subsector_stats_path)
     
@@ -58,7 +60,7 @@ def show_monthly_dashboard():
     region_dropdown, sector_dropdown, gas_drodpdown = st.columns(3)
     with region_dropdown:
         selected_scope = st.selectbox("Region/Country", region_options + unique_countries, key="selected_scope")
-        region_condition = map_region_condition(selected_scope)
+        region_condition = map_region_condition(selected_scope, country_map)
 
     with sector_dropdown:
         selected_sector_label = st.selectbox("Sector", sector_labels, key="sector_selector")
@@ -767,4 +769,3 @@ def show_monthly_dashboard():
 
     con.close()
 
-    print("Tab 3 has run!!!!!!")
