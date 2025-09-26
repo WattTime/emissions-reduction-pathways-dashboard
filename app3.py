@@ -116,11 +116,11 @@ with col1:
 
     st.markdown(
         """
-        <a href="/Inventory_Comparison" target="_self" style="text-decoration: none;">
+        <a href="/Ownership" target="_self" style="text-decoration: none;">
             <div class="tool-card">
-                <div class="tool-icon">📒</div>
-                <div class="tool-title">Inventory Comparison</div>
-                <div class="tool-desc">Compare Climate TRACE data with organizational inventories such as EDGAR or UNFCCC.</div>
+                <div class="tool-icon">🏢</div>
+                <div class="tool-title">Ownership Module</div>
+                <div class="tool-desc">Explore which companies own which emitting assets, and analyze their patterns.</div>
             </div>
         </a>
         """,
@@ -164,7 +164,7 @@ with col2:
             <div class="tool-card">
                 <div class="tool-icon">📍</div>
                 <div class="tool-title">Asset Finder</div>
-                <div class="tool-desc">Find assets within a specified kilometer radius.</div>
+                <div class="tool-desc">Find all assets within in a specified location's radius.</div>
             </div>
         </a>
         """,

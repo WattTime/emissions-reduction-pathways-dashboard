@@ -16,8 +16,24 @@ from config import CONFIG
 
 def show_monthly_dashboard():
 
+    st.markdown(
+        """
+        <style>
+        /* Hide the sidebar completely */
+        section[data-testid="stSidebar"] {
+            display: none;
+        }
+        /* Hide the sidebar collapse/expand arrow */
+        [data-testid="collapsedControl"] {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     # configure data paths (querying) and region options (dropdown selection)
-    asset_path = CONFIG['asset_path']
+    asset_path = CONFIG['asset_emissions_country_subsector_path']
     country_subsector_stats_path = CONFIG['country_subsector_stats_path']
     country_subsector_totals_path = CONFIG['country_subsector_totals_path']
     region_options = CONFIG['region_options']
@@ -41,9 +57,11 @@ def show_monthly_dashboard():
     country_map = {row[0]: row[1] for row in country_rows}
     unique_countries = list(country_map.keys())
 
-    df_stats_all = pd.read_parquet(country_subsector_stats_path)
-    
-    df_stats_all = df_stats_all[df_stats_all['gas'].isin(['co2e_100yr', 'ch4'])]
+    df_stats_all = con.execute(f"""
+        SELECT * 
+        FROM '{country_subsector_stats_path}'
+        where gas in ('co2e_100yr','ch4')
+    """).df()
 
     raw_sectors = sorted(df_stats_all['sector'].dropna().unique().tolist())
 

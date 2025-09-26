@@ -8,6 +8,22 @@ from utils.queries import *
 
 def show_abatement_curve():
 
+    st.markdown(
+        """
+        <style>
+        /* Hide the sidebar completely */
+        section[data-testid="stSidebar"] {
+            display: none;
+        }
+        /* Hide the sidebar collapse/expand arrow */
+        [data-testid="collapsedControl"] {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     ##### SET UP -------
     # set up data pathways
     annual_asset_path = CONFIG['annual_asset_path']

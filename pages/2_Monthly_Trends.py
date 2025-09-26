@@ -49,7 +49,7 @@ st.markdown(
 
 logo_base64 = get_base64_of_bin_file("Climate TRACE Logo.png")
 
-asset_path = CONFIG['asset_path']
+asset_path = CONFIG['asset_emissions_country_subsector_path']
 
 con = duckdb.connect()
 

@@ -18,6 +18,22 @@ from utils.queries import *
 
 def show_emissions_reduction_plan():
 
+    st.markdown(
+        """
+        <style>
+        /* Hide the sidebar completely */
+        section[data-testid="stSidebar"] {
+            display: none;
+        }
+        /* Hide the sidebar collapse/expand arrow */
+        [data-testid="collapsedControl"] {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     # configure data paths and region options for querying
     annual_asset_path = CONFIG['annual_asset_path']
     city_path = CONFIG['city_path']
