@@ -8,6 +8,7 @@ from tabs.tab01_emissions_reduction_tab import show_emissions_reduction_plan
 from tabs.tab02_abatement_curve_tab import show_abatement_curve
 from tabs.tab03_monthly_dashboard_tab import show_monthly_dashboard
 
+
 st.set_page_config(layout="wide")
 
 # load CT logo
@@ -18,7 +19,7 @@ def get_base64_of_bin_file(bin_file_path):
 
 logo_base64 = get_base64_of_bin_file("Climate TRACE Logo.png")
 
-asset_path = CONFIG['asset_path']
+asset_path = CONFIG['asset_emissions_country_subsector_path']
 
 con = duckdb.connect()
 
@@ -44,10 +45,7 @@ tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Abatement Curve", "Month
 
 with tab1:
     show_emissions_reduction_plan()
-    # pass
 with tab2:
     show_abatement_curve()
-
 with tab3:
     show_monthly_dashboard()
-

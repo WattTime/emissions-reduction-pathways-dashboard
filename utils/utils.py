@@ -36,7 +36,7 @@ def format_dropdown_options(raw_values, lowercase_words=None):
 
 
 # function finds us the correct column and value to use as a condition based on the dropdown selection
-def map_region_condition(region_selection):
+def map_region_condition(region_selection, country_map=None):
     
     list_of_continents = ['Africa',
                           'Antarctica',
@@ -97,16 +97,10 @@ def map_region_condition(region_selection):
     elif region_selection in region_mapping:
         return region_mapping[region_selection]
     
-    elif region_selection in ["United States", "United States of America"]:
-        return {
-            'column_name': 'country_name',
-            'column_value': ["United States", "United States of America"]
-    }
-
     else:
         return {
-            'column_name': 'country_name',
-            'column_value': region_selection
+                'column_name': 'iso3_country', 
+                'column_value': country_map.get(region_selection)
         }
     
 def relabel_regions(df):
@@ -408,10 +402,12 @@ def is_country(region_selection):
     
 def reset_city():
     st.session_state["city_selector"] = "-- Select City --"
+    st.session_state.needs_recompute_RO = True
 
 def reset_state_and_county():
     st.session_state["state_province_selector"] = "-- Select State / Province --"
     st.session_state["county_district_selector"] = "-- Select County / District --"
+    st.session_state.needs_recompute_RO = True
 
 
 abatement_subsector_options = {
@@ -1035,3 +1031,13 @@ def get_consequetial_hover_text(df_induced):
         hover_texts.append(text)
 
     return hover_texts
+
+# ------------- THIS IS TO ISOLATE TABS FROM RECOMPUTE -------------
+def mark_ro_recompute():
+    st.session_state.needs_recompute_reduction_opportunities = True
+
+def mark_ac_recompute():
+    st.session_state.needs_recompute_abatement_curve = True
+
+def mark_mt_recompute():
+    st.session_state.needs_recompute_monthly_trends = True

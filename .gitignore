@@ -5,6 +5,9 @@ __pycache__/
 .venv/
 venv/
 test
-old_data/
+
 asset_annual_emissions_moer.parquet
 asset_annual_emissions.parquet
+
+data/zzz_archive/
+data/zzz_landing_zone/

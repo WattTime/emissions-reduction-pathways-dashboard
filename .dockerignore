@@ -14,7 +14,8 @@ venv/
 
 # Ignore test and old data folders
 data/test/
-data/old_data/
+data/zzz_archive/
+data/zzz_landing_zone/
 
 # Ignore Jupyter notebooks (not needed in prod)
 *.ipynb
