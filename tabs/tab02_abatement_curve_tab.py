@@ -24,6 +24,7 @@ def show_abatement_curve():
         unsafe_allow_html=True
     )
 
+
     ##### SET UP -------
     # set up data pathways
     annual_asset_path = CONFIG['annual_asset_path']
@@ -38,33 +39,25 @@ def show_abatement_curve():
     with sector_col:
         selected_sector= st.selectbox(
             "Sector",
-            options=abatement_subsector_options.keys(),
-            key="sector_dropdown_AC"
-        )
+            options=abatement_subsector_options.keys())
 
     with subsector_col:
         subsector_options = abatement_subsector_options
         selected_subsector = st.selectbox(
             "Subsector",
-            options=subsector_options[selected_sector],
-            key="subsector_dropdown_AC"
-        )
+            options=subsector_options[selected_sector])
 
     with gas_col:
         selected_gas = st.selectbox(
             "Gas",
             options=['co2e_100yr', 'ch4'],
-            disabled=True,
-            key="gas_dropdown_AC"    
-        )
+            disabled=True)
 
     with year_col:
         selected_year = st.selectbox(
             "Year",
             options=[2024],
-            disabled=True,
-            key="year_dropdown_AC"
-        )
+            disabled=True)
 
     ##### QUERY DATA -------
     con = duckdb.connect()
@@ -99,9 +92,7 @@ def show_abatement_curve():
             metric_options = ['emissions_factor']
         selected_metric= st.selectbox(
             "Metric",
-            options=metric_options,
-            key="metric_dropdown_AC"   
-        )
+            options=metric_options)
         
     with group_col:
         if selected_subsector == 'electricity-generation':
@@ -112,16 +103,12 @@ def show_abatement_curve():
             group_options= ['country']
         selected_group = st.selectbox(
             "Group type",
-            options=group_options,
-            key="group_dropdown_AC"
-        )
+            options=group_options)
 
     with color_col:
         selected_color = st.selectbox(
             "Color group",
-            options=['unfccc_annex', 'em_finance', 'continent', 'developed_un', 'sector'],
-            key="color_dropdown_AC"    
-        )
+            options=['unfccc_annex', 'em_finance', 'continent', 'developed_un', 'sector'])
 
     with asset_col:
         if selected_group == 'asset':
@@ -133,9 +120,7 @@ def show_abatement_curve():
         selected_assets = st.multiselect(
             "Assets to highlight",
             options=df_assets_filter[asset_options].unique(),
-            default=[],
-            key="assets_to_highlight_dropdown_AC"    
-        )
+            default=[])
         if selected_group == 'asset':
             selected_assets_list = [int(re.search(r'\((\d+)\)', asset).group(1)) for asset in selected_assets]
         else:
@@ -309,28 +294,9 @@ def show_abatement_curve():
 
     ##### PLOT FIGURE -------
     st.markdown("<br>", unsafe_allow_html=True)
-    
     # define variables
-    # dict_color, dict_lines = define_color_lines(selected_metric)
-    # fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
-
-    curve_key = f"abatement_curve_{selected_sector}_{selected_subsector}_{selected_gas}_{selected_year}_{selected_group}_{selected_color}_{selected_metric}"
-    # print(curve_key)
-
-    if curve_key not in st.session_state:
-        print("NOT CACHEING")
-        dict_color, dict_lines = define_color_lines(selected_metric)
-        st.session_state[curve_key] = plot_abatement_curve(
-            df_assets,
-            selected_group,
-            selected_color,
-            dict_color,
-            dict_lines,
-            selected_assets_list,
-            selected_metric
-        )
-
-    fig = st.session_state[curve_key]
+    dict_color, dict_lines = define_color_lines(selected_metric)
+    fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
 
     if selected_group == 'asset':
         total_units = total_assets
