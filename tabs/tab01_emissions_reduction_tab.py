@@ -636,9 +636,10 @@ def show_emissions_reduction_plan():
 
     df_stacked_bar = con.execute(query_sector_reductions).df()
 
-    if use_ct_ers is True:
-        df_stacked_bar.drop(df_stacked_bar[df_stacked_bar["sector"] == "fossil-fuel-operations"].index, inplace=True)
-        # print(df_stacked_bar)
+    # if use_ct_ers is True:
+    #     # df_stacked_bar.drop(df_stacked_bar[df_stacked_bar["sector"] == "fossil-fuel-operations"].index, inplace=True)
+    #     # print(df_stacked_bar)
+    #     pass
 
     if use_ct_ers:
         
