@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.DS_Store
+.env
+.venv/
+venv/
+test
+
+asset_annual_emissions_moer.parquet
+asset_annual_emissions.parquet
+
+data/zzz_archive/
+data/zzz_landing_zone/
