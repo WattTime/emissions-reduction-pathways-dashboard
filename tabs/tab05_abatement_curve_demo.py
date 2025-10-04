@@ -127,7 +127,7 @@ def show_abatement_curve():
     with group_col:
         selected_group = st.selectbox(
             "Group type",
-            options=['country', 'asset'])
+            options=['asset', 'country'])
 
     with color_col:
         selected_color = st.selectbox(
