@@ -82,18 +82,27 @@ def show_abatement_curve():
     df_assets_filter = con.execute(query_assets_filter).df()
     
     # query all assets using selected info and add gadm information
-    query_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
-    df_assets = con.execute(query_assets).df()
-    df_assets =  relabel_regions(df_assets)
+    country_sector_sql = query_country_sector(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
+    top_1000_assets_sql = query_top_1000_assets(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
+    
+    # country-subsector data
+    df_country_subsector = con.execute(country_sector_sql).df()
+    df_country_subsector =  relabel_regions(df_country_subsector)
+
+    # top 1000 asset data
+    df_top_1000_assets = con.execute(top_1000_assets_sql).df()
+    df_top_1000_assets =  relabel_regions(df_top_1000_assets)
 
     ##### SUMMARIZE KEY METRICS -------
-    activity_unit = df_assets['activity_units'][0]
-    total_ers = df_assets['strategy_name'].nunique()
-    total_emissions = df_assets['emissions_quantity'].sum()
-    total_reductions = df_assets['net_reduction_potential'].sum()
-    total_assets = df_assets['asset_id'].nunique()
-    total_countries = df_assets['iso3_country'].nunique()
-    total_ba = df_assets['balancing_authority_region'].nunique()
+    # activity_unit = df_assets['activity_units'][0]
+    total_ers = df_country_subsector['strategy_name'].nunique()
+    total_emissions = df_country_subsector['emissions_quantity'].sum()
+    total_reductions = df_country_subsector['net_reduction_potential'].sum()
+    
+    # changing this to sum asset count
+    total_assets = df_country_subsector['asset_count'].sum()
+    total_countries = df_country_subsector['iso3_country'].nunique()
+    total_ba = df_country_subsector['balancing_authority_region'].nunique()
 
     ##### DROPDOWN MENU: METRIC, GROUP, COLOR, HIGHLIGHT -------
     metric_col, group_col, color_col, asset_col = st.columns(4)
@@ -157,9 +166,9 @@ def show_abatement_curve():
     # define variables
     dict_color, dict_lines = define_color_lines(selected_metric)
     if selected_group == 'asset':
-        df_plot = df_assets.sort_values(selected_metric, ascending=False).head(1000).copy()
+        df_plot = df_top_1000_assets.sort_values(selected_metric, ascending=False).head(1000).copy()
     else:
-        df_plot = df_assets.sort_values(selected_metric, ascending=False)
+        df_plot = df_country_subsector.sort_values(selected_metric, ascending=False)
     fig = plot_abatement_curve(df_plot, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
 
     if selected_group == 'asset':
