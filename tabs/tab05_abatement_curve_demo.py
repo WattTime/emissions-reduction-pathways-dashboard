@@ -82,6 +82,7 @@ def show_abatement_curve():
     df_assets_filter = con.execute(query_assets_filter).df()
     
     # query all assets using selected info and add gadm information
+    print("getting asset and country-subsector data")
     country_sector_sql = query_country_sector(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
     top_1000_assets_sql = query_top_1000_assets(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
     
@@ -95,6 +96,7 @@ def show_abatement_curve():
 
     ##### SUMMARIZE KEY METRICS -------
     # activity_unit = df_assets['activity_units'][0]
+    print("aggregating totals...")
     total_ers = df_country_subsector['strategy_name'].nunique()
     total_emissions = df_country_subsector['emissions_quantity'].sum()
     total_reductions = df_country_subsector['net_reduction_potential'].sum()
@@ -164,6 +166,7 @@ def show_abatement_curve():
     ##### PLOT FIGURE -------
     st.markdown("<br>", unsafe_allow_html=True)
     # define variables
+    print("plotting abatement curve")
     dict_color, dict_lines = define_color_lines(selected_metric)
     if selected_group == 'asset':
         df_plot = df_top_1000_assets.sort_values(selected_metric, ascending=False).head(1000).copy()
