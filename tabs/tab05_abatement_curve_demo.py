@@ -1,3 +1,16 @@
+import os, psutil, time, sys
+
+print("\n\n=== DEBUG: container memory check ===", flush=True)
+process = psutil.Process(os.getpid())
+info = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / (1024**3)
+print(f"Total container memory: {info:.2f} GB", flush=True)
+
+for i in range(10):
+    rss = process.memory_info().rss / (1024**2)
+    print(f"[{i}] Memory usage: {rss:.1f} MB", flush=True)
+    time.sleep(1)
+
+
 import streamlit as st
 import duckdb
 import re
