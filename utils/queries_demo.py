@@ -292,7 +292,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
             round(ae.emissions_reduced_at_asset) AS "asset_reduction_potential (t CO2e)",
             round(ae.total_emissions_reduced_per_year) AS "net_reduction_potential (t CO2e)"
-        FROM '{annual_asset_path}' ae
+        FROM read_parquet('{annual_asset_path}', filename=true) ae
         LEFT JOIN (
             SELECT DISTINCT
                 gid AS gid_0, 
