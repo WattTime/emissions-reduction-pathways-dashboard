@@ -176,7 +176,6 @@ def show_abatement_curve():
     ##### PLOT FIGURE -------
     st.markdown("<br>", unsafe_allow_html=True)
     # define variables
-    print("plotting abatement curve")
     dict_color, dict_lines = define_color_lines(selected_metric)
     if selected_group == 'asset':
         df_plot = df_top_1000_assets.sort_values(selected_metric, ascending=False).head(1000).copy()
@@ -242,12 +241,12 @@ def show_abatement_curve():
     df_table = con.execute(query_table).df()
 
     # create urls to link info to climate trace website
-    df_table['asset_url'] = df_table.apply(make_asset_url, axis=1)
-    df_table['country_url'] = df_table.apply(make_country_url, axis=1)
-    df_table['gadm_1_url'] = df_table.apply(make_state_url, axis=1)
-    df_table['gadm_1_url'].fillna('', inplace=True)
-    df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
-    df_table['gadm_2_url'].fillna('', inplace=True)
+    # df_table['asset_url'] = df_table.apply(make_asset_url, axis=1)
+    # df_table['country_url'] = df_table.apply(make_country_url, axis=1)
+    # df_table['gadm_1_url'] = df_table.apply(make_state_url, axis=1)
+    # df_table['gadm_1_url'].fillna('', inplace=True)
+    # df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
+    # df_table['gadm_2_url'].fillna('', inplace=True)
     print("✅ URL columns created", flush=True)
 
     # filter + format table
@@ -262,14 +261,14 @@ def show_abatement_curve():
         df_table,
         use_container_width=True,
         height=600,
-        column_config={
-            "asset_url": st.column_config.LinkColumn("asset_name", display_text=r"admin=([^&]+)"),
-            "country_url": st.column_config.LinkColumn("country", display_text=r'admin=([^:]+)'),
-            "gadm_1_url": st.column_config.LinkColumn("state / province", display_text=r'admin=(.+?)--'),
-            "gadm_2_url": st.column_config.LinkColumn("county / municipality / district", display_text=r'admin=(.+?)--'),
-            "emissions_quantity (t CO2e)": st.column_config.NumberColumn(format="localized"),
-            "asset_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized"),
-            "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
+    #     column_config={
+    #         "asset_url": st.column_config.LinkColumn("asset_name", display_text=r"admin=([^&]+)"),
+    #         "country_url": st.column_config.LinkColumn("country", display_text=r'admin=([^:]+)'),
+    #         "gadm_1_url": st.column_config.LinkColumn("state / province", display_text=r'admin=(.+?)--'),
+    #         "gadm_2_url": st.column_config.LinkColumn("county / municipality / district", display_text=r'admin=(.+?)--'),
+    #         "emissions_quantity (t CO2e)": st.column_config.NumberColumn(format="localized"),
+    #         "asset_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized"),
+    #         "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
     )
     print("✅ Final table rendered", flush=True)
 
