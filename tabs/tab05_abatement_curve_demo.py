@@ -1,3 +1,4 @@
+import os, psutil, time, sys, traceback
 import streamlit as st
 import duckdb
 import re
@@ -5,6 +6,9 @@ import pandas as pd
 from config import CONFIG
 from utils.utils_demo import *
 from utils.queries_demo import *
+
+# print("=== DEBUG: Starting tab02_abatement_curve_tab.py ===", flush=True)
+
 
 def show_abatement_curve():
 
@@ -206,6 +210,7 @@ def show_abatement_curve():
     #     unsafe_allow_html=True)
 
     st.plotly_chart(fig, use_container_width=True)
+    print("✅ Plot generated", flush=True)
 
     ##### EMISSIONS REDUCING SOLUTIONS -------
     st.markdown(f"### {total_ers} emissions-reducing solutions")
@@ -223,6 +228,7 @@ def show_abatement_curve():
             "assets_impacted": st.column_config.NumberColumn(format="localized"),
             "total_asset_reduction_potential": st.column_config.NumberColumn(format="localized"),
             "total_net_reduction_potential": st.column_config.NumberColumn(format="localized")})
+    print(f"✅ ERS table loaded ({len(ers_table):,} rows)", flush=True)
 
     # create a table with all assets + ERS info
     query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
@@ -235,6 +241,7 @@ def show_abatement_curve():
     df_table['gadm_1_url'].fillna('', inplace=True)
     df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
     df_table['gadm_2_url'].fillna('', inplace=True)
+    print("✅ URL columns created", flush=True)
 
     # filter + format table
     df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'asset_reduction_potential (t CO2e)', 'net_reduction_potential (t CO2e)']]
@@ -257,6 +264,7 @@ def show_abatement_curve():
             "asset_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized"),
             "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
     )
+    print("✅ Final table rendered", flush=True)
 
 # import os, psutil, time, sys, traceback
 # print("=== DEBUG: Starting tab02_abatement_curve_tab.py ===", flush=True)
