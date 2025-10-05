@@ -28,7 +28,8 @@ def create_assets_filter_sql(annual_asset_path, selected_subsector, selected_yea
         WHERE 
             ae.subsector IN ({formatted_subsectors})
             AND ae.year = {selected_year}
-        ORDER BY selected_asset_list;
+        ORDER BY net_reduction_potential desc
+        limit 1000;
     '''
     return query_assets_sql
 
