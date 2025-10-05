@@ -270,7 +270,6 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
     query_table_assets_sql = f'''
         SELECT 
             ae.subsector,
-            ae.year,
             ae.asset_id,
             ae.asset_name,
             ae.iso3_country,
@@ -282,12 +281,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             ae.gadm_2,
             gadm2.gid_2,
             gadm2.gadm_2_name,
-            ae.activity_units,
             ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
-            SUM(ae.activity) AS activity,
-            SUM(ae.capacity) AS capacity,
             ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
             round(ae.emissions_reduced_at_asset) AS "asset_reduction_potential (t CO2e)",
@@ -321,7 +315,6 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             AND year = {selected_year}
         GROUP BY
             ae.subsector,
-            ae.year,
             ae.asset_id,
             ae.asset_name,
             ae.iso3_country,
@@ -335,8 +328,6 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             gadm2.gadm_2_name,
             ae.activity_units,
             ae.strategy_name,
-            ae.strategy_description,
-            ae.mechanism,
             ae.emissions_reduced_at_asset,
             ae.total_emissions_reduced_per_year
         ORDER BY total_emissions_reduced_per_year DESC
