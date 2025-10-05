@@ -7,10 +7,12 @@ from config import CONFIG
 from utils.utils_demo import *
 from utils.queries_demo import *
 
-# print("=== DEBUG: Starting tab02_abatement_curve_tab.py ===", flush=True)
+
 
 
 def show_abatement_curve():
+
+    print("=== DEBUG: Starting tab02_abatement_curve_tab.py ===", flush=True)
 
     st.markdown(
         """
