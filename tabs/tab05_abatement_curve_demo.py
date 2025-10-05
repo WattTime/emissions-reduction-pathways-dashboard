@@ -86,6 +86,7 @@ def show_abatement_curve():
     # find asset information for highlighting
     query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
     df_assets_filter = con.execute(query_assets_filter).df()
+    print("✅ Retrieved assets for assets filter...", flush=True)
     
     # query all assets using selected info and add gadm information
     print("getting asset and country-subsector data")
@@ -95,22 +96,25 @@ def show_abatement_curve():
     # country-subsector data
     df_country_subsector = con.execute(country_sector_sql).df()
     df_country_subsector =  relabel_regions(df_country_subsector)
+    print("✅ Retrieved country-subsector data.", flush=True)
 
     # top 1000 asset data
     df_top_1000_assets = con.execute(top_1000_assets_sql).df()
     df_top_1000_assets =  relabel_regions(df_top_1000_assets)
+    print("✅ Retrieved top 1000 assets", flush=True)
 
     ##### SUMMARIZE KEY METRICS -------
     # activity_unit = df_assets['activity_units'][0]
-    print("aggregating totals...")
     total_ers = df_country_subsector['strategy_name'].nunique()
     total_emissions = df_country_subsector['emissions_quantity'].sum()
     total_reductions = df_country_subsector['net_reduction_potential'].sum()
+
     
     # changing this to sum asset count
     total_assets = df_country_subsector['asset_count'].sum()
     total_countries = df_country_subsector['iso3_country'].nunique()
     total_ba = df_country_subsector['balancing_authority_region'].nunique()
+    print("✅ Aggregated totals...", flush=True)
 
     ##### DROPDOWN MENU: METRIC, GROUP, COLOR, HIGHLIGHT -------
     metric_col, group_col, color_col, asset_col = st.columns(4)
@@ -179,6 +183,7 @@ def show_abatement_curve():
     else:
         df_plot = df_country_subsector.sort_values(selected_metric, ascending=False)
     fig = plot_abatement_curve(df_plot, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
+    print("✅ Plot generated", flush=True)
 
     if selected_group == 'asset':
         total_units = total_assets
@@ -212,7 +217,7 @@ def show_abatement_curve():
     #     unsafe_allow_html=True)
 
     st.plotly_chart(fig, use_container_width=True)
-    print("✅ Plot generated", flush=True)
+    print("✅ Rendered abatement curve chart", flush=True)
 
     ##### EMISSIONS REDUCING SOLUTIONS -------
     st.markdown(f"### {total_ers} emissions-reducing solutions")
