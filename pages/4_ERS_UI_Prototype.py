@@ -37,7 +37,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(
     """
     <p style="margin-bottom: 1rem;">
-        <a href="/" target="_self"
+        <a href="/Home" target="_self"
            style="text-decoration: none; font-size: 1.1rem; font-weight: 600; color: #ff4b4b; cursor: pointer;">
             ⬅️ Back to Home
         </a>
