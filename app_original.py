@@ -4,48 +4,18 @@ import duckdb
 
 from config import CONFIG
 from utils.utils import get_release_version
-from tabs.tab04_asset_ownership import show_ownership_module
+from tabs.tab01_emissions_reduction_tab import show_emissions_reduction_plan
+from tabs.tab02_abatement_curve_tab import show_abatement_curve
+from tabs.tab03_monthly_dashboard_tab import show_monthly_dashboard
+
 
 st.set_page_config(layout="wide")
-st.markdown(
-    """
-    <style>
-    /* Remove default top padding */
-    .block-container {
-        padding-top: 1rem; /* adjust this number (default ~6rem) */
-    }
-    /* Hide the sidebar completely */
-    section[data-testid="stSidebar"] {
-        display: none;
-    }
-    /* Hide the sidebar collapse/expand arrow */
-    [data-testid="collapsedControl"] {
-        display: none;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 # load CT logo
 def get_base64_of_bin_file(bin_file_path):
     with open(bin_file_path, 'rb') as f:
         data = f.read()
     return base64.b64encode(data).decode()
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-st.markdown(
-    """
-    <p style="margin-bottom: 1rem;">
-        <a href="/" target="_self" style="text-decoration: none; font-size: 1.1rem; font-weight: 600; color: #ff4b4b; cursor: pointer;">
-            ⬅️ Back to Home
-        </a>
-    </p>
-    """,
-    unsafe_allow_html=True
-)
-
 
 logo_base64 = get_base64_of_bin_file("Climate TRACE Logo.png")
 
@@ -57,7 +27,7 @@ st.markdown(
         f"""
         <div style='display: flex; align-items: center;'>
             <img src="data:image/png;base64,{logo_base64}" width="50" style="margin-right: 10px;" />
-            <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Asset Ownership (Beta)</h1>
+            <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Emissions Reduction Pathways (Beta)</h1>
         </div>
         <p style="margin-top: 2px; font-size: 1em; font-style: italic;">
             The data in this dashboard is from Climate TRACE release <span style='color: red;'><strong>{get_release_version(con, asset_path)}</strong></span> (excluding forestry), covering 660 million assets globally.
@@ -71,8 +41,11 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Abatement Curve", "Monthly Trends"])
 
-tab1, = st.tabs(["Asset Ownership"])
 with tab1:
-    show_ownership_module()
-
+    show_emissions_reduction_plan()
+with tab2:
+    show_abatement_curve()
+with tab3:
+    show_monthly_dashboard()

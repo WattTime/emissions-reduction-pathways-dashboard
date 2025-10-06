@@ -4,7 +4,7 @@ import duckdb
 
 from config import CONFIG
 from utils.utils import get_release_version
-from tabs.tab03_monthly_dashboard_tab import show_monthly_dashboard
+from tabs.tab05_abatement_curve_demo import show_ers_prototype
 
 st.set_page_config(layout="wide")
 st.markdown(
@@ -26,7 +26,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # load CT logo
 def get_base64_of_bin_file(bin_file_path):
     with open(bin_file_path, 'rb') as f:
@@ -38,7 +37,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(
     """
     <p style="margin-bottom: 1rem;">
-        <a href="/" target="_self" style="text-decoration: none; font-size: 1.1rem; font-weight: 600; color: #ff4b4b; cursor: pointer;">
+        <a href="/" target="_self"
+           style="text-decoration: none; font-size: 1.1rem; font-weight: 600; color: #ff4b4b; cursor: pointer;">
             ⬅️ Back to Home
         </a>
     </p>
@@ -57,7 +57,7 @@ st.markdown(
         f"""
         <div style='display: flex; align-items: center;'>
             <img src="data:image/png;base64,{logo_base64}" width="50" style="margin-right: 10px;" />
-            <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Monthly Trends (Beta)</h1>
+            <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Emissions Reduction Pathways (Beta)</h1>
         </div>
         <p style="margin-top: 2px; font-size: 1em; font-style: italic;">
             The data in this dashboard is from Climate TRACE release <span style='color: red;'><strong>{get_release_version(con, asset_path)}</strong></span> (excluding forestry), covering 660 million assets globally.
@@ -71,8 +71,6 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+show_ers_prototype()
 
-tab1, = st.tabs(["Monthly Trends"])
-with tab1:
-    show_monthly_dashboard()
 
