@@ -231,9 +231,9 @@ def show_ers_prototype():
     df_table['asset_url'] = df_table.apply(make_asset_url, axis=1)
     df_table['country_url'] = df_table.apply(make_country_url, axis=1)
     df_table['gadm_1_url'] = df_table.apply(make_state_url, axis=1)
-    df_table['gadm_1_url'].fillna('', inplace=True)
+    df_table['gadm_1_url'] = df_table['gadm_1_url'].fillna('')
     df_table['gadm_2_url'] = df_table.apply(make_county_url, axis=1)
-    df_table['gadm_2_url'].fillna('', inplace=True)
+    df_table['gadm_2_url'] = df_table['gadm_2_url'].fillna('')
     print("✅ URL columns created", flush=True)
 
     # filter + format table

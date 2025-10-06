@@ -566,7 +566,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
 
     gdf_asset['asset_value'] = 1
     gdf_asset['net_reduction_potential'] = gdf_asset['net_reduction_potential'].fillna(0)
-    
+
     # set up conditions
     cond0 = {
         'label': True,
@@ -597,12 +597,14 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
 
     # update chart based off asset/country/BA - cumulative sum activity
     if choice_group == 'asset':
+        gdf_asset['asset_id'] = gdf_asset['asset_id'].astype(int)
         hover_id = 'asset_id'
         hover_name = 'asset_name'
         df = df.sort_values([selected_metric], ascending=False)
         df = df.reset_index(drop=True)
         # NOTEEEE: FIX THIS LOL 
         df['activity_cum'] = df[x_axis_metric].cumsum()
+        df['activity_cum'] = df['activity_cum'].fillna(0)
         df[choice_color] = df[choice_color].apply(lambda x: False if pd.isna(x)==True else x)
         df['color'] = df[choice_color].map(dict_color[choice_color])
         hover_text_1 = f'{df['subsector'][0]}<br>{df['country_name'][0]}<br><i>Asset ID: {df[hover_id][0]}</i><br>Asset Name: {df[hover_name][0]}</i><br>Asset Type: {df['asset_type'][0]}</i><br>Emissions: {round(df['emissions_quantity'][0]):,.0f}<br>Reduction: {round(df['net_reduction_potential'][0]):,.0f}'
@@ -629,6 +631,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
         df = df.sort_values([selected_metric], ascending=False)
         df = df.reset_index()
         df['activity_cum'] = df[x_axis_metric].cumsum()
+        df['activity_cum'] = df['activity_cum'].fillna(0)
         df['color'] = df[choice_color].map(dict_color[choice_color])
 
     new_row = []
@@ -729,10 +732,10 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
         ]
     
     fig.add_trace(go.Scatter(
-        x=selected_df['activity_cum'] - selected_df['activity'] / 2,
-        y=selected_df[selected_metric] + y_offset,
+        x=selected_df['activity_cum'] - selected_df[x_axis_metric] / 2,
+        y=selected_df[selected_metric],
         mode='markers',
-        marker=dict(size=8, color='#A94442', symbol='triangle-down'),
+        marker=dict(size=8, color='#A94442', symbol='diamond'),
         name="Selected Assets",
         hoverinfo='text',
         hovertext=highlight_hover_text,
@@ -741,7 +744,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
             font=dict(color='#A94442', size=14))))
     
     fig.add_trace(go.Scatter(
-        x=selected_df['activity_cum'] - selected_df['activity'] / 2,
+        x=selected_df['activity_cum'] - selected_df[x_axis_metric] / 2,
         y=selected_df[selected_metric] + y_offset,
         mode='text',
         hoverinfo=None,
