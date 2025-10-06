@@ -84,6 +84,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 
+
 # ---- 3-column layout ----
 col1, col2, col3 = st.columns(3)
 
@@ -137,6 +138,7 @@ with col3:
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
+
 
 # ---- Footer ----
 # st.markdown(
