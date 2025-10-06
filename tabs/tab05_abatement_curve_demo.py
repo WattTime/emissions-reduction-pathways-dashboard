@@ -8,9 +8,7 @@ from utils.utils_demo import *
 from utils.queries_demo import *
 
 
-
-
-def show_abatement_curve():
+def show_ers_prototype():
 
     print("=== DEBUG: Starting tab02_abatement_curve_tab.py ===", flush=True)
 
@@ -271,6 +269,8 @@ def show_abatement_curve():
             "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
     )
     print("✅ Final table rendered", flush=True)
+
+    con.close()
 
 # import os, psutil, time, sys, traceback
 # print("=== DEBUG: Starting tab02_abatement_curve_tab.py ===", flush=True)
