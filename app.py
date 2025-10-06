@@ -79,6 +79,9 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
+
 
 
 # ---- 3-column layout ----
@@ -136,14 +139,14 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ---- Footer ----
-st.markdown(
-    """
-    <div style='text-align: center; margin-top: 3rem;'>
-        <a href='https://climatetrace.org' target='_blank'
-           style='text-decoration: none; font-size: 1.5rem; color: #1f77ff;'>
-           🌍 Visit the <span style='font-weight:600;'>Climate TRACE</span> website!
-        </a>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# st.markdown(
+#     """
+#     <div style='text-align: center; margin-top: 3rem;'>
+#         <a href='https://climatetrace.org' target='_blank'
+#            style='text-decoration: none; font-size: 1.5rem; color: #1f77ff;'>
+#            🌍 Visit the <span style='font-weight:600;'>Climate TRACE</span> website!
+#         </a>
+#     </div>
+#     """,
+#     unsafe_allow_html=True
+# )
