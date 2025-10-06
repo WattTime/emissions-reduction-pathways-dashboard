@@ -610,7 +610,6 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
         hover_text_1 = f'{df['subsector'][0]}<br>{df['country_name'][0]}<br><i>Asset ID: {df[hover_id][0]}</i><br>Asset Name: {df[hover_name][0]}</i><br>Asset Type: {df['asset_type'][0]}</i><br>Emissions: {round(df['emissions_quantity'][0]):,.0f}<br>Reduction: {round(df['net_reduction_potential'][0]):,.0f}'
         
     elif choice_group in ['country', 'balancing_authority_region']:
-        hover_text_1 = f'{df['subsector'][0]}<br>{df['country_name'][0]}<br>Emissions: {round(df['emissions_quantity'][0]):,.0f}<br>Reduction: {round(df['net_reduction_potential'][0]):,.0f}'
         if choice_group == 'country':
             hover_id = 'country_name'
             hover_name = 'country_name'
@@ -633,6 +632,7 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
         df['activity_cum'] = df[x_axis_metric].cumsum()
         df['activity_cum'] = df['activity_cum'].fillna(0)
         df['color'] = df[choice_color].map(dict_color[choice_color])
+        hover_text_1 = f'{df['subsector'][0]}<br>{df['country_name'][0]}<br>Emissions: {round(df['emissions_quantity'][0]):,.0f}<br>Reduction: {round(df['net_reduction_potential'][0]):,.0f}'
 
     new_row = []
     for col in df.columns:
