@@ -163,7 +163,7 @@ def show_ers_prototype():
             options=asset_options,
             default=[])
         if selected_group == 'asset':
-            selected_assets_list = [re.search(r'\((\d+)\)', asset).group(1) for asset in selected_assets]
+            selected_assets_list = [int(re.search(r'\((\d+)\)', asset).group(1)) for asset in selected_assets]
         else:
             selected_assets_list = selected_assets
 
