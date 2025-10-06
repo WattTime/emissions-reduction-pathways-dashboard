@@ -75,47 +75,8 @@ def show_ers_prototype():
 
     selected_year = 2024
 
-    ##### QUERY DATA -------
-    con = duckdb.connect()
-
-    # determine sector type
-    # sector_type = return_sector_type(selected_sector)
-
-    # find asset information for highlighting
-    query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
-    df_assets_filter = con.execute(query_assets_filter).df()
-    print("✅ Retrieved assets for assets filter...", flush=True)
-    
-    # query all assets using selected info and add gadm information
-    print("getting asset and country-subsector data")
-    country_sector_sql = query_country_sector(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
-    top_1000_assets_sql = query_top_1000_assets(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
-    
-    # country-subsector data
-    df_country_subsector = con.execute(country_sector_sql).df()
-    df_country_subsector =  relabel_regions(df_country_subsector)
-    print("✅ Retrieved country-subsector data.", flush=True)
-
-    # top 1000 asset data
-    df_top_1000_assets = con.execute(top_1000_assets_sql).df()
-    df_top_1000_assets =  relabel_regions(df_top_1000_assets)
-    print("✅ Retrieved top 1000 assets", flush=True)
-
-    ##### SUMMARIZE KEY METRICS -------
-    # activity_unit = df_assets['activity_units'][0]
-    total_ers = df_country_subsector['strategy_name'].nunique()
-    total_emissions = df_country_subsector['emissions_quantity'].sum()
-    total_reductions = df_country_subsector['net_reduction_potential'].sum()
-
-    
-    # changing this to sum asset count
-    total_assets = df_country_subsector['asset_count'].sum()
-    total_countries = df_country_subsector['iso3_country'].nunique()
-    total_ba = df_country_subsector['balancing_authority_region'].nunique()
-    print("✅ Aggregated totals...", flush=True)
-
     ##### DROPDOWN MENU: METRIC, GROUP, COLOR, HIGHLIGHT -------
-    metric_col, group_col, color_col, asset_col = st.columns(4)
+    metric_col, group_col, color_col = st.columns(3)
 
     with metric_col:
         metric_options = ['Version 1', 'Version 2']
@@ -142,19 +103,39 @@ def show_ers_prototype():
             "Color group",
             options=['sector', 'continent', 'unfccc_annex'])
 
-    with asset_col:
-        if selected_group == 'asset':
-            asset_options = df_assets_filter.sort_values('net_reduction_potential', ascending=False).head(1000)['selected_asset_list'].unique()
-        elif selected_group == 'country':
-            asset_options = df_assets_filter['country_name'].unique()
-        selected_assets = st.multiselect(
-            "Assets to highlight",
-            options=asset_options,
-            default=[])
-        if selected_group == 'asset':
-            selected_assets_list = [int(re.search(r'\((\d+)\)', asset).group(1)) for asset in selected_assets]
-        else:
-            selected_assets_list = selected_assets
+    ##### QUERY DATA -------
+    con = duckdb.connect()
+
+    # find asset information for highlighting
+    if selected_group == 'asset':
+        query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
+    else:
+        query_assets_filter = create_country_filter_sql(annual_asset_path, selected_subsector, selected_year)
+    df_assets_filter = con.execute(query_assets_filter).df()
+    print("✅ Retrieved assets for assets filter...", flush=True)
+    
+    # query top 1000 assets using selected info and add gadm information or all countries
+    print("getting asset and country-subsector data")
+    if selected_group == 'asset':
+        query_df_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
+    else:
+        query_df_assets = find_sector_country_sql(annual_asset_path, selected_subsector, selected_year)
+    df_assets = con.execute(query_df_assets).df()
+    df_assets =  relabel_regions(df_assets)
+    print("✅ Retrieved asset / country-subsector data.", flush=True)
+
+    ##### SUMMARIZE KEY METRICS -------
+
+    query_totals = summarize_totals_sql(annual_asset_path, selected_subsector, selected_year)
+    df_totals = con.execute(query_totals).df()
+    total_ers = df_totals['total_ers'][0]
+    total_emissions = df_totals['total_emissions'][0]
+    total_reductions = df_totals['total_reductions'][0]
+    total_assets = df_totals['total_assets'][0]
+    total_countries = df_totals['total_countries'][0]
+    total_ba = df_totals['total_ba'][0]
+    print("✅ Aggregated totals...", flush=True)
+
 
     ##### ADD DESCRIPTIONS FOR SECTORS -------
     
@@ -171,15 +152,26 @@ def show_ers_prototype():
         unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
+    ##### ASSET QUERYING -------
+
+    asset_col = st.columns(1)
+
+    with asset_col[0]:
+        asset_options = df_assets_filter['selected_asset_list'].unique()
+        selected_assets = st.multiselect(
+            "Assets to highlight in curve",
+            options=asset_options,
+            default=[])
+        if selected_group == 'asset':
+            selected_assets_list = [re.search(r'\((\d+)\)', asset).group(1) for asset in selected_assets]
+        else:
+            selected_assets_list = selected_assets
+
     ##### PLOT FIGURE -------
     st.markdown("<br>", unsafe_allow_html=True)
     # define variables
     dict_color, dict_lines = define_color_lines(selected_metric)
-    if selected_group == 'asset':
-        df_plot = df_top_1000_assets.sort_values(selected_metric, ascending=False).head(1000).copy()
-    else:
-        df_plot = df_country_subsector.sort_values(selected_metric, ascending=False)
-    fig = plot_abatement_curve(df_plot, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
+    fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
     print("✅ Plot generated", flush=True)
 
     if selected_group == 'asset':
@@ -188,9 +180,6 @@ def show_ers_prototype():
     elif selected_group == 'country':
         total_units = total_countries
         total_units_desc = 'countries'
-    elif selected_group == 'balancing_authority_region':
-        total_units = total_ba
-        total_units_desc = 'balancing authority regions'
 
     if selected_group == 'asset':
         chart_title = (f"<b>By Top {min(total_assets, 1000)} Assets ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
@@ -217,7 +206,7 @@ def show_ers_prototype():
     print("✅ Rendered abatement curve chart", flush=True)
 
     ##### EMISSIONS REDUCING SOLUTIONS -------
-    st.markdown(f"### {total_ers} emissions-reducing solutions")
+    st.markdown(f"### {total_ers} Emissions-Reducing Solutions (ERS)")
 
     # create a table to summarize ers for sector
     query_ers = summarize_ers_sql(annual_asset_path, selected_subsector, selected_year)
@@ -252,7 +241,7 @@ def show_ers_prototype():
 
     # NOTEEEE: TO FIX
     # st.markdown(f"### top emitting {selected_subsector} assets")
-    st.markdown(f"### top emitting 200 reduction opportunities")
+    st.markdown(f"### Top 200 Reduction Opportunities")
 
     # display table
     st.dataframe(
