@@ -87,9 +87,9 @@ def show_abatement_curve():
 
     with metric_col:
         if total_ers > 0:
-            metric_options = ['emissions_factor', 'asset_reduction_potential', 'net_reduction_potential']
+            metric_options = ['emissions_factor', 'emissions_quantity', 'asset_reduction_potential', 'net_reduction_potential']
         else:
-            metric_options = ['emissions_factor']
+            metric_options = ['emissions_factor', 'emissions_quantity']
         selected_metric= st.selectbox(
             "Metric",
             options=metric_options)
@@ -256,6 +256,30 @@ def show_abatement_curve():
     
     elif selected_metric == 'net_reduction_potential':
         metric_unit = 'net emissions reduction potential'
+        if len(ef_max_asset) > 1:
+            ef_max_asset = ef_max_asset[:1]
+            ef_max_asset = ', '.join(map(str, ef_max_asset)) + ', etc.'
+        else:
+            ef_max_asset = ', '.join(map(str, ef_max_asset))  
+        if len(ef_min_asset) > 1:
+            ef_min_asset = ef_min_asset[:1]
+            ef_min_asset = ', '.join(map(str, ef_min_asset)) + ', etc.'
+        else:
+            ef_min_asset = ', '.join(map(str, ef_min_asset))
+        ef_max = round(ef_max / 1000000, 2)
+        ef_max_title = 'Highest Total Emissions'
+        ef_max_text = f"{ef_max} mil tonnes<br><span style='font-size:0.6em;'>{ef_max_asset}</span>"
+        ef_max_color = 'teal'
+        ef_min = round(ef_min / 1000000, 2)
+        ef_min_title = 'Lowest Total Emissions'
+        ef_min_text = f"{ef_min} mil tonnes <br><span style='font-size:0.6em;'>{ef_min_asset}</span>"
+        ef_min_color = 'grey'
+        ef_avg = round(ef_avg / 1000000, 2)
+        ef_avg_title = 'Avg Emissions'
+        ef_avg_text = f"{ef_avg} million tonnes of CO<sub>2</sub>e<br><span style='font-size:0.6em;'>per asset</span>"
+
+    elif selected_metric == 'emissions_quantity':
+        metric_unit = 'total emissions'
         if len(ef_max_asset) > 1:
             ef_max_asset = ef_max_asset[:1]
             ef_max_asset = ', '.join(map(str, ef_max_asset)) + ', etc.'
