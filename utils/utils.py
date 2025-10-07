@@ -703,26 +703,70 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
     selected_df = df[df[hover_id].isin(selected_assets)].copy()
     
     if choice_group == 'asset':
-        highlight_hover_text = [
-            f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
-            for country, hover_val, hover_val2, activity, ef in zip(
-                selected_df['country_name'], 
-                selected_df[hover_id], 
+        if selected_metric == 'emissions_factor':
+            highlight_hover_text = [
+                f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>EF: {metric:,.3f}"
+                for country, hover_val, hover_val2, activity, metric in zip(
+                    selected_df['country_name'], 
+                    selected_df[hover_id], 
+                    selected_df[hover_name],
+                    selected_df['activity'], 
+                    selected_df[selected_metric]
+                    )
+                ]
+        elif selected_metric == 'emissions_quantity':
+            highlight_hover_text = [
+                f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>Emissions: {metric:,.0f}"
+                for country, hover_val, hover_val2, activity, metric in zip(
+                    selected_df['country_name'], 
+                    selected_df[hover_id], 
+                    selected_df[hover_name],
+                    selected_df['activity'], 
+                    selected_df[selected_metric]
+                    )
+                ]
+        else:
+            highlight_hover_text = [
+                f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>Reduction Potential: {metric:,.0f}"
+                for country, hover_val, hover_val2, activity, metric in zip(
+                    selected_df['country_name'], 
+                    selected_df[hover_id], 
+                    selected_df[hover_name],
+                    selected_df['activity'], 
+                    selected_df[selected_metric]
+                    )
+                ]
+    else:
+        if selected_metric == 'emissions_factor':
+            highlight_hover_text = [
+            f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {metric:,.3f}"
+            for country, hover_val, activity, metric in zip(
+                selected_df['iso3_country'], 
                 selected_df[hover_name],
                 selected_df['activity'], 
                 selected_df[selected_metric]
                 )
             ]
-    else:
-        highlight_hover_text = [
-        f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
-        for country, hover_val, activity, ef in zip(
-            selected_df['iso3_country'], 
-            selected_df[hover_name],
-            selected_df['activity'], 
-            selected_df[selected_metric]
-            )
-        ]
+        elif selected_metric == 'emissions_quantity':
+            highlight_hover_text = [
+            f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>Emissions: {metric:,.0f}"
+            for country, hover_val, activity, metric in zip(
+                selected_df['iso3_country'], 
+                selected_df[hover_name],
+                selected_df['activity'], 
+                selected_df[selected_metric]
+                )
+            ]
+        else:
+            highlight_hover_text = [
+            f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {metric:,.0f}"
+            for country, hover_val, activity, metric in zip(
+                selected_df['iso3_country'], 
+                selected_df[hover_name],
+                selected_df['activity'], 
+                selected_df[selected_metric]
+                )
+            ]
     
     fig.add_trace(go.Scatter(
         x=selected_df['activity_cum'] - selected_df['activity'] / 2,
