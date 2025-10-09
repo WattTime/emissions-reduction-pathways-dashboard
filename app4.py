@@ -4,7 +4,7 @@ import duckdb
 
 from config import CONFIG
 from utils.utils import get_release_version
-from tabs.tab05_abatement_curve_demo import show_abatement_curve
+from tabs.tab05_abatement_curve_demo import show_ers_prototype
 
 
 st.set_page_config(layout="wide")
@@ -40,4 +40,4 @@ st.markdown(
 st.markdown("<br>", unsafe_allow_html=True)
 
 
-show_abatement_curve()
+show_ers_prototype()

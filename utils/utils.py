@@ -315,6 +315,10 @@ def data_add_moer(df, cond={}):
     df_moer = pd.read_parquet(fpath)
     df_moer['ef_moer'] = df_moer['moer_avg']*0.4536/1000 #Convert lbs to tons
 
+    df["asset_id"] = df["asset_id"].astype(str)
+    df_moer["asset_id"] = df_moer["asset_id"].astype(str)
+
+
     #Map MOER to assets using asset_id
     df = pd.merge(
         df,
@@ -401,12 +405,12 @@ def is_country(region_selection):
         return True
     
 def reset_city():
-    st.session_state["city_selector"] = "-- Select City --"
+    st.session_state["city_selector_RO"] = "-- Select City --"
     st.session_state.needs_recompute_RO = True
 
 def reset_state_and_county():
-    st.session_state["state_province_selector"] = "-- Select State / Province --"
-    st.session_state["county_district_selector"] = "-- Select County / District --"
+    st.session_state["state_province_selector_RO"] = "-- Select State / Province --"
+    st.session_state["county_district_selector_RO"] = "-- Select County / District --"
     st.session_state.needs_recompute_RO = True
 
 
@@ -512,15 +516,15 @@ def define_color_lines(metric):
         'Unknown/Unlisted': '#9E9C9C'
     }
     dict_color['sector'] = {
-        'forestry': '#E8516C',
+        'forestry-and-land-use': '#E8516C',
         'manufacturing': '#9554FF',
-        'fossil-fuel-operation': '#FF6F42',
+        'fossil-fuel-operations': '#FF6F42',
         'waste': '#BBD421',
         'transportation': '#FBBA1A',
         'agriculture':  '#0BCF42',
         'buildings':  '#03A0E3',
         'fluorinated-gas': '#B6B4B4',
-        'mineral': '#4380F5',
+        'mineral-extraction': '#4380F5',
         'power': '#407076'
     }
     dict_color['background'] = {
@@ -547,6 +551,13 @@ def define_color_lines(metric):
             for subsector in sublist}
         
     elif metric == 'net_reduction_potential':
+        outlier_values = {}
+        dict_lines = {
+            subsector: outlier_values.get(subsector, {})
+            for subsector, sublist in abatement_subsector_options.items()
+            for subsector in sublist}
+        
+    elif metric == 'emissions_quantity':
         outlier_values = {}
         dict_lines = {
             subsector: outlier_values.get(subsector, {})
@@ -638,14 +649,17 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
     # create abatement curve, filling in area underneath for each asset iteratively
     if selected_metric == 'emissions_factor':
         y_axis_title = f'emissions factor (t of CO2e per {activity_unit if 'yaxis_title' not in cond else cond['yaxis_title']})'
-        hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>EF: {round(df[selected_metric][0], 3)}',
+        hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2):,.0f}<br>EF: {round(df[selected_metric][0], 3):,.3f}',
     elif selected_metric == 'asset_reduction_potential':
         y_axis_title = 'asset emissions reduction potential (t of CO2e)'
-        hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>Reduction Potential: {round(df[selected_metric][0], 0)}',
+        hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2):,.0f}<br>Reduction Potential: {round(df[selected_metric][0], 0):,.0f}',
     elif selected_metric == 'net_reduction_potential':
         y_axis_title = 'net emissions reduction potential (t of CO2e)'
-        hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2)}<br>Net Reduction Potential: {round(df[selected_metric][0], 0)}',
-    
+        hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2):,.0f}<br>Net Reduction Potential: {round(df[selected_metric][0], 0):,.0f}',
+    elif selected_metric == 'emissions_quantity':
+        y_axis_title = 'total emissions (t of CO2e)'
+        hover_text_1 = f'{df['country_name'][0]}<br><i>{df[hover_id][0]}</i><br>Activity: {round(df['activity'][0], 2):,.0f}<br>Total Emissions: {round(df[selected_metric][0], 0):,.0f}',
+
     fig.add_trace(go.Scatter(
         x=[0, df['activity_cum'][1]],
         y=[df[selected_metric][1], df[selected_metric][1]], 
@@ -665,9 +679,11 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
     
     for i in range(2,len(df)):
         if selected_metric == 'emissions_factor':
-            hover_text = f'{df['country_name'][i]}<br><i>{df[hover_id][i]}</i><br>Activity: {round(df['activity'][i], 2)}<br>EF: {round(df[selected_metric][i], 3)}'
+            hover_text = f'{df['country_name'][i]}<br><i>{df[hover_id][i]}</i><br>Activity: {round(df['activity'][i], 2):,.0f}<br>EF: {round(df[selected_metric][i], 3):,.3f}'
+        elif selected_metric == 'emissions_quantity':
+            hover_text = f'{df['country_name'][i]}<br><i>{df[hover_id][i]}</i><br>Activity: {round(df['activity'][i], 2):,.0f}<br>Total Emissions: {round(df[selected_metric][i], 3):,.0f}'
         else:
-            hover_text = f'{df['country_name'][i]}<br><i>{df[hover_id][i]}</i><br>Activity: {round(df['activity'][i], 2)}<br>Reduction Potential: {round(df[selected_metric][i], 0)}'
+            hover_text = f'{df['country_name'][i]}<br><i>{df[hover_id][i]}</i><br>Activity: {round(df['activity'][i], 2):,.0f}<br>Reduction Potential: {round(df[selected_metric][i], 0):,.0f}'
         
         color_value = df['color'][i] 
         fig.add_trace(go.Scatter(
@@ -691,26 +707,70 @@ def plot_abatement_curve(gdf_asset, choice_group, choice_color, dict_color, dict
     selected_df = df[df[hover_id].isin(selected_assets)].copy()
     
     if choice_group == 'asset':
-        highlight_hover_text = [
-            f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
-            for country, hover_val, hover_val2, activity, ef in zip(
-                selected_df['country_name'], 
-                selected_df[hover_id], 
+        if selected_metric == 'emissions_factor':
+            highlight_hover_text = [
+                f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>EF: {metric:,.3f}"
+                for country, hover_val, hover_val2, activity, metric in zip(
+                    selected_df['country_name'], 
+                    selected_df[hover_id], 
+                    selected_df[hover_name],
+                    selected_df['activity'], 
+                    selected_df[selected_metric]
+                    )
+                ]
+        elif selected_metric == 'emissions_quantity':
+            highlight_hover_text = [
+                f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>Emissions: {metric:,.0f}"
+                for country, hover_val, hover_val2, activity, metric in zip(
+                    selected_df['country_name'], 
+                    selected_df[hover_id], 
+                    selected_df[hover_name],
+                    selected_df['activity'], 
+                    selected_df[selected_metric]
+                    )
+                ]
+        else:
+            highlight_hover_text = [
+                f"{country}<br>{hover_val}<br><i>{hover_val2}</i><br>Activity: {activity:,.1f}<br>Reduction Potential: {metric:,.0f}"
+                for country, hover_val, hover_val2, activity, metric in zip(
+                    selected_df['country_name'], 
+                    selected_df[hover_id], 
+                    selected_df[hover_name],
+                    selected_df['activity'], 
+                    selected_df[selected_metric]
+                    )
+                ]
+    else:
+        if selected_metric == 'emissions_factor':
+            highlight_hover_text = [
+            f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {metric:,.3f}"
+            for country, hover_val, activity, metric in zip(
+                selected_df['iso3_country'], 
                 selected_df[hover_name],
                 selected_df['activity'], 
                 selected_df[selected_metric]
                 )
             ]
-    else:
-        highlight_hover_text = [
-        f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {ef:.3f}"
-        for country, hover_val, activity, ef in zip(
-            selected_df['iso3_country'], 
-            selected_df[hover_name],
-            selected_df['activity'], 
-            selected_df[selected_metric]
-            )
-        ]
+        elif selected_metric == 'emissions_quantity':
+            highlight_hover_text = [
+            f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>Emissions: {metric:,.0f}"
+            for country, hover_val, activity, metric in zip(
+                selected_df['iso3_country'], 
+                selected_df[hover_name],
+                selected_df['activity'], 
+                selected_df[selected_metric]
+                )
+            ]
+        else:
+            highlight_hover_text = [
+            f"{country}<br><i>{hover_val}</i><br>Activity: {activity:,.1f}<br>EF: {metric:,.0f}"
+            for country, hover_val, activity, metric in zip(
+                selected_df['iso3_country'], 
+                selected_df[hover_name],
+                selected_df['activity'], 
+                selected_df[selected_metric]
+                )
+            ]
     
     fig.add_trace(go.Scatter(
         x=selected_df['activity_cum'] - selected_df['activity'] / 2,
