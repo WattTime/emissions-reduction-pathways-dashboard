@@ -315,6 +315,10 @@ def data_add_moer(df, cond={}):
     df_moer = pd.read_parquet(fpath)
     df_moer['ef_moer'] = df_moer['moer_avg']*0.4536/1000 #Convert lbs to tons
 
+    df["asset_id"] = df["asset_id"].astype(str)
+    df_moer["asset_id"] = df_moer["asset_id"].astype(str)
+
+
     #Map MOER to assets using asset_id
     df = pd.merge(
         df,
@@ -401,12 +405,12 @@ def is_country(region_selection):
         return True
     
 def reset_city():
-    st.session_state["city_selector"] = "-- Select City --"
+    st.session_state["city_selector_RO"] = "-- Select City --"
     st.session_state.needs_recompute_RO = True
 
 def reset_state_and_county():
-    st.session_state["state_province_selector"] = "-- Select State / Province --"
-    st.session_state["county_district_selector"] = "-- Select County / District --"
+    st.session_state["state_province_selector_RO"] = "-- Select State / Province --"
+    st.session_state["county_district_selector_RO"] = "-- Select County / District --"
     st.session_state.needs_recompute_RO = True
 
 

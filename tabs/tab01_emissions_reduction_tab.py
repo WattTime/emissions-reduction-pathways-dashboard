@@ -37,6 +37,7 @@ def show_emissions_reduction_plan():
     # configure data paths and region options for querying
     annual_asset_path = CONFIG['annual_asset_path']
     city_path = CONFIG['city_path']
+    gadm_0_path = CONFIG['gadm_0_path']
     gadm_1_path = CONFIG['gadm_1_path']
     gadm_2_path = CONFIG['gadm_2_path']
     country_subsector_totals_path = CONFIG['country_subsector_totals_path']
@@ -120,7 +121,7 @@ def show_emissions_reduction_plan():
 
     # --------- DROPDOWN ROW 1 ----------
 
-    country_dropdown, state_province_dropdown, county_district_dropdown, city_dropdown = st.columns(4)
+    country_dropdown, state_province_dropdown, county_district_dropdown, city_dropdown, forestry_toggle  = st.columns([1.75,1.75,1.75,1.75,1])
 
     with country_dropdown:
         
@@ -161,9 +162,10 @@ def show_emissions_reduction_plan():
         else:
             state_province_options = ['-- Select State / Province --'] + sorted(
                 row[0] for row in con.execute(
-                    f"SELECT DISTINCT gadm_1_name FROM '{gadm_1_path}' WHERE {col} IN {val_str}"
+                    f"SELECT DISTINCT gadm_1_name FROM '{gadm_1_path}' WHERE {col} IN {val_str} and gadm_1_name is not null"
                 ).fetchall()
             )
+
             selected_state_province = st.selectbox(
                 "State / Province",
                 state_province_options,
@@ -261,6 +263,19 @@ def show_emissions_reduction_plan():
                 index=0,
                 on_change=reset_state_and_county
             )
+    
+    with forestry_toggle:
+        forestry_toggle = st.radio(
+            "Forestry Data:",
+            ["Exclude", "Include"],
+            horizontal=True
+        )
+
+        if forestry_toggle == "Exclude":
+            exclude_forestry = True
+        else:
+            exclude_forestry = False
+
 
 
     if use_ct_ers is False:
@@ -411,7 +426,7 @@ def show_emissions_reduction_plan():
 
     where_clauses = []
     if selected_region == "Global":
-        table = country_subsector_totals_path
+        table = gadm_0_path
         where_clauses.append("gas = 'co2e_100yr'")
         where_clauses.append("country_name is not null")
     elif selected_city and not selected_city.startswith("--"):
@@ -456,6 +471,10 @@ def show_emissions_reduction_plan():
     query_country = build_country_sql(table, where_sql)
 
     df_pie = con.execute(query_country).df()
+    
+    if exclude_forestry:
+        df_pie = df_pie[df_pie['sector'] != 'forestry-and-land-use']
+    
     df_pie["emissions_quantity"] = df_pie["country_emissions_quantity"]
 
     total_emissions = format_number_short(df_pie["country_emissions_quantity"].sum())
@@ -635,6 +654,9 @@ def show_emissions_reduction_plan():
     
 
     df_stacked_bar = con.execute(query_sector_reductions).df()
+
+    if exclude_forestry:
+        df_stacked_bar = df_stacked_bar[df_stacked_bar['sector'] != 'forestry-and-land-use']
 
     # if use_ct_ers is True:
     #     # df_stacked_bar.drop(df_stacked_bar[df_stacked_bar["sector"] == "fossil-fuel-operations"].index, inplace=True)
@@ -1032,7 +1054,8 @@ def show_emissions_reduction_plan():
                                                     annual_asset_path=annual_asset_path,
                                                     dropdown_join=dropdown_join,
                                                     reduction_where_sql=reduction_where_sql,
-                                                    sorting_preference=asset_sorting_preference)
+                                                    sorting_preference=asset_sorting_preference,
+                                                    exclude_forestry=exclude_forestry)
     else:
         sorting_options = [
             "Asset Reduction Potential",
@@ -1056,7 +1079,8 @@ def show_emissions_reduction_plan():
                                                     benchmark_join=benchmark_join,
                                                     dropdown_join=dropdown_join,
                                                     reduction_where_sql=reduction_where_sql,
-                                                    sorting_preference=asset_sorting_preference
+                                                    sorting_preference=asset_sorting_preference,
+                                                    exclude_forestry=exclude_forestry
                                                     )
 
     asset_table_df = con.execute(asset_table_sql).df()
