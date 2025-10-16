@@ -968,7 +968,7 @@ def create_heatmap_sql(country_selected_bool,
 
 
     sector_summary = f'''
-        select cast('Total' as string) as ' '
+        select cast('Total' as string) as Region
             , sum(case when a.sector = 'agriculture' then a.total_emissions_reduced_per_year else 0 end) as agriculture
             , sum(case when a.sector = 'buildings' then a.total_emissions_reduced_per_year else 0 end) as buildings
             , sum(case when a.sector = 'fluorinated-gases' then a.total_emissions_reduced_per_year else 0 end) as fluorinated_gases

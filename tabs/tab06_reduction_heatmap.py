@@ -62,7 +62,7 @@ def show_reduction_heatmap():
     st.markdown("<br>", unsafe_allow_html=True)
 
 
-    country_dropdown, view_by_dropdown  = st.columns([2,2])
+    country_dropdown, state_province_dropdown  = st.columns([2,2])
 
     with country_dropdown:
         
@@ -78,7 +78,7 @@ def show_reduction_heatmap():
     country_selected_bool = selected_region != "Global"
 
     state_selected_bool = False
-    with view_by_dropdown:
+    with state_province_dropdown:
         if not country_selected_bool:
             state_province_options = ['Select a Country to Enable']
             selected_state_province = st.selectbox(
@@ -122,7 +122,7 @@ def show_reduction_heatmap():
                                      gadm_1_path=gadm_1_path,
                                      gadm_2_path=gadm_2_path)
     
-    print(heatmap_sql['sector_summary'])
+    # print(heatmap_sql['sector_summary'])
     
     sector_df = con.execute(heatmap_sql['sector_summary']).df()
     table_df = con.execute(heatmap_sql['table_summary']).df()
@@ -133,7 +133,7 @@ def show_reduction_heatmap():
     sector_df = sector_df.reset_index(drop=True)
     table_df = table_df.reset_index(drop=True)
 
-    sector_df.insert(0, "Region", ["Total"])
+    # sector_df.insert(0, "Region", ["Total"])
     if "country_name" in table_df.columns:
         table_df.rename(columns={"country_name": "Region"}, inplace=True)
 
@@ -168,52 +168,67 @@ def show_reduction_heatmap():
     universal_red_cmap = LinearSegmentedColormap.from_list(
         "universal_red",
         [
-            (0.0, "#D3D3D3"),  # neutral low
-            (0.3, "#E57373"),  # soft red
-            (0.6, "#E53935"),  # medium red
-            (1.0, "#B71C1C")   # deep red
+            (0.0, "#FFFFFF"),   # pure white
+            (0.25, "#FCE0DC"),  # light peachy-pink (more visible than FAD2CF)
+            (0.55, "#F2725B"),  # lively warm coral
+            (0.85, "#E53935"),  # bright red (good punch)
+            (1.0, "#C62828"),   # medium-dark red (not as deep as B71C1C)
         ]
     )
 
-    # --- Custom color function ---
-    def mixed_gradient(df):
+
+    def mixed_gradient(df, color_cols, dark_mode=False, low_thresh=0.05):
         colors = pd.DataFrame("", index=df.index, columns=df.columns)
+        text_color = "white" if dark_mode else "black"
 
-        # find spacer index (where Region is blank)
-        spacer_idx = df.index[df["Region"] == ""].tolist()
-        spacer_idx = spacer_idx[0] if spacer_idx else None
+        # Protect against single-row DataFrames (no variance)
+        if len(df) == 1:
+            # normalize across that single row
+            row = df[color_cols].iloc[0].astype(float)
+            vmin, vmax = row.min(), row.max()
+            scale = (vmax - vmin) or 1.0
+            row_scaled = (row - vmin) / scale
 
-        # top = horizontal gradient (row 0)
-        top = df.loc[0, color_cols]
-        top_scaled = (top - top.min()) / (top.max() - top.min() + 1e-9)
+            for col in color_cols:
+                v = row_scaled[col]
+                if np.isfinite(v) and v > low_thresh:
+                    r, g, b, _ = universal_red_cmap(v)
+                    r, g, b = [int(c * 255) for c in (r, g, b)]
+                    bg = f"rgb({r},{g},{b})"
+                else:
+                    bg = "white" if not dark_mode else "#1E1E1E"
+
+                colors.at[df.index[0], col] = f"background-color: {bg}; color: {text_color}; font-weight: bold;"
+            return colors
+
+        # Multi-row logic (normal case)
+        mins = df[color_cols].min()
+        maxs = df[color_cols].max()
+        rngs = (maxs - mins).replace(0, 1.0)
+        scaled = (df[color_cols] - mins) / rngs
+
         for col in color_cols:
-            rgba = universal_red_cmap(top_scaled[col])
-            colors.at[0, col] = f"background-color: rgba({int(rgba[0]*255)}, {int(rgba[1]*255)}, {int(rgba[2]*255)}, {rgba[3]})"
+            for idx in df.index:
+                v = scaled.at[idx, col]
+                if np.isfinite(v) and v > low_thresh:
+                    r, g, b, _ = universal_red_cmap(v)
+                    r, g, b = [int(c * 255) for c in (r, g, b)]
+                    bg = f"rgb({r},{g},{b})"
+                else:
+                    bg = "white" if not dark_mode else "#1E1E1E"
 
-
-        # spacer = light gray filler row (text hidden by matching color)
-        if spacer_idx is not None:
-            gray_hex = "#E0E0E0"  # same as your background
-            for col in df.columns:
-                colors.at[spacer_idx, col] = (
-                    f"background-color: {gray_hex}; "
-                    f"color: {gray_hex}; "           # make text fully blend in
-                )
-
-        # lower = vertical gradient (below spacer)
-        start_row = spacer_idx + 1 if spacer_idx is not None else 1
-        lower = df.loc[start_row:, color_cols]
-        lower_scaled = (lower - lower.min()) / (lower.max() - lower.min() + 1e-9)
-        for col in color_cols:
-            for idx in lower_scaled.index:
-                rgba = universal_red_cmap(lower_scaled.loc[idx, col])
-                colors.at[idx, col] = f"background-color: rgba({int(rgba[0]*255)}, {int(rgba[1]*255)}, {int(rgba[2]*255)}, {rgba[3]})"
+                colors.at[idx, col] = f"background-color: {bg}; color: {text_color};"
 
         return colors
 
+
     # --- Apply highlight and gradient ---
-    def highlight_total_row(row):
-        return ['background-color: #303030; color: white;' if row.name == 0 else '' for _ in row]
+    def bold_first_row(row):
+        if row.name == 0:
+            return ['font-weight: bold;' for _ in row]
+        else:
+            return ['' for _ in row]
+
 
 
     # --- Convert to numeric for all non-Region columns ---
@@ -256,27 +271,60 @@ def show_reduction_heatmap():
             return f"{float(x):,.0f}"
         except (ValueError, TypeError):
             return ""
+        
+    def get_max_column_widths(df1, df2, font_char_width=6, padding=12):
+        """
+        Estimate consistent column widths across two DataFrames based on the longest
+        string length (including headers).
+        """
+        widths = {}
+        all_cols = [c for c in df1.columns if c in df2.columns]
 
-    # --- Create the Styler first ---
-    combined_styled = (
-        combined_df
-        .style
-        .apply(highlight_total_row, axis=1)
-        .apply(lambda df: mixed_gradient(df), axis=None)
-    )
+        for col in all_cols:
+            max_len = max(
+                df1[col].astype(str).map(len).max(),
+                df2[col].astype(str).map(len).max(),
+                len(str(col))
+            )
+            widths[col] = max_len * font_char_width + padding
 
-    # --- Then apply number formatting ---
-    combined_styled = combined_styled.format(
-        subset=numeric_cols,
-        formatter=safe_format
-    )
+        return widths
 
 
-    # --- Display ---
-    st.markdown("### Emissions Reduction Potential by Sector")
+    # --- Compute column widths ---
+    col_widths = get_max_column_widths(sector_df, table_df)
+    col_widths["Region"] = 90
+
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown("### **Regional Reduction Opportunities by Sector**")
+
+    # --- Display first table ---
     st.dataframe(
-        combined_styled, 
-        use_container_width=True, 
+        sector_df.style
+            .apply(lambda df: mixed_gradient(df, color_cols=color_cols), axis=None)
+            .format(subset=numeric_cols, formatter=safe_format)
+            .applymap(lambda v: "font-weight: bold;"),
+        use_container_width=False,
         hide_index=True,
+        column_config={
+            col: st.column_config.Column(width=int(col_widths.get(col, 100)))
+            for col in sector_df.columns
+        },
+    )
+
+    # --- Display second table ---
+    st.dataframe(
+        table_df.style
+            .apply(lambda df: mixed_gradient(df, color_cols=color_cols), axis=None)
+            .format(subset=numeric_cols, formatter=safe_format)
+            .hide(axis="columns"),
+        use_container_width=False,
+        hide_index=True,
+        column_config={
+            col: st.column_config.Column(width=int(col_widths.get(col, 100)))
+            for col in table_df.columns
+        },
         height=800
     )
