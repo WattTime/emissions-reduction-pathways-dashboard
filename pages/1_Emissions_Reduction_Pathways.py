@@ -6,6 +6,7 @@ from config import CONFIG
 from utils.utils import get_release_version
 from tabs.tab01_emissions_reduction_tab import show_emissions_reduction_plan
 from tabs.tab02_abatement_curve_tab import show_abatement_curve
+from tabs.tab06_reduction_heatmap import show_reduction_heatmap
 
 st.set_page_config(layout="wide")
 st.markdown(
@@ -73,11 +74,13 @@ st.markdown(
 st.markdown("<br>", unsafe_allow_html=True)
 
 
-tab1, tab2 = st.tabs(["Reduction Opportunities", "Abatement Curve"])
+tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Abatement Curve", "Heat Map"])
 with tab1:
     show_emissions_reduction_plan()
 
 with tab2:
     show_abatement_curve()
 
+with tab3:
+    show_reduction_heatmap()
 
