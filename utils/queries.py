@@ -1050,8 +1050,17 @@ def build_subsector_reduction_percentile_download(
                                     percentile_path,
                                     percentile_col,
                                     selected_proportion,
-                                    benchmark_join
+                                    benchmark_join,
+                                    exclude_forestry
                                 ):
+    
+    if exclude_forestry:
+        forestry_where = f'''
+            where coalesce(a.sector, ce.sector) <> 'forestry-and-land-use' 
+        '''
+
+    else:
+        forestry_where = ""
     
     subsector_reduction_sql_string = f'''
             SELECT 
@@ -1166,6 +1175,8 @@ def build_subsector_reduction_percentile_download(
             ) ce
                 on ce.sector = a.sector
                 and ce.subsector = a.subsector
+
+            {forestry_where}
 
             GROUP BY coalesce(a.sector, ce.sector),
                 coalesce(a.subsector, ce.subsector)

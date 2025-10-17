@@ -1155,7 +1155,8 @@ def show_emissions_reduction_plan():
                                     percentile_path=percentile_path,
                                     percentile_col=percentile_col,
                                     selected_proportion=selected_proportion,
-                                    benchmark_join=benchmark_join
+                                    benchmark_join=benchmark_join,
+                                    exclude_forestry=exclude_forestry
                                 )
         
         print(subsector_download_sql)
