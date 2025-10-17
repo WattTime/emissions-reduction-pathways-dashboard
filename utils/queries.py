@@ -1037,3 +1037,143 @@ def create_heatmap_sql(country_selected_bool,
     }
 
     return heatmap_sql
+
+'''
+This is ad-hoc for Ting to download subsector reductions by country by given percentile
+'''
+def build_subsector_reduction_percentile_download(
+                                    annual_asset_path,
+                                    dropdown_join,
+                                    reduction_where_sql,
+                                    table,
+                                    where_sql,
+                                    percentile_path,
+                                    percentile_col,
+                                    selected_proportion,
+                                    benchmark_join
+                                ):
+    
+    subsector_reduction_sql_string = f'''
+            SELECT 
+                coalesce(a.sector, ce.sector) sector,
+                coalesce(a.subsector, ce.subsector) subsector,
+                sum(ce.country_emissions_quantity) as country_emissions_quantity,
+                SUM(a.asset_emissions_quantity) AS asset_emissions_quantity,
+                SUM(a.emissions_reduction_potential) AS emissions_reduction_potential
+
+            
+            from (
+
+                select sector
+                    , subsector
+                    , sum(emissions_quantity) asset_emissions_quantity
+                    , sum(emissions_reduction_potential) emissions_reduction_potential
+
+                FROM (
+                    SELECT 
+                        ae.asset_id,
+                        ae.sector,
+                        ae.subsector,
+                        ae.iso3_country,
+                        ae.country_name,
+
+                        CASE 
+                            WHEN BOOL_OR(ae.activity_is_temporal) 
+                                THEN SUM(ae.activity) 
+                                ELSE AVG(ae.activity) 
+                        END AS activity,
+
+                        AVG(ae.ef_12_moer) AS ef_12_moer,
+
+                        CASE 
+                            WHEN AVG(ae.ef_12_moer) IS NULL 
+                                THEN SUM(ae.emissions_quantity)
+                            ELSE (
+                                CASE 
+                                    WHEN BOOL_OR(ae.activity_is_temporal) 
+                                        THEN SUM(ae.activity) 
+                                        ELSE AVG(ae.activity) 
+                                END
+                            ) * AVG(ae.ef_12_moer)
+                        END AS emissions_quantity,
+
+                        GREATEST(
+                            0,
+                            CASE 
+                                WHEN AVG(ae.ef_12_moer) IS NULL 
+                                THEN (
+                                    SUM(ae.emissions_quantity)
+                                    - (
+                                        CASE 
+                                            WHEN BOOL_OR(ae.activity_is_temporal)
+                                                THEN SUM(ae.activity * pct.{percentile_col})
+                                                ELSE AVG(ae.activity * pct.{percentile_col})
+                                        END
+                                    )
+                                ) * ({selected_proportion} / 100.0)
+
+                                ELSE (
+                                    (
+                                        CASE 
+                                            WHEN BOOL_OR(ae.activity_is_temporal)
+                                                THEN SUM(ae.activity) * AVG(ae.ef_12_moer)
+                                                ELSE AVG(ae.activity) * AVG(ae.ef_12_moer)
+                                        END
+                                    )
+                                    - (
+                                        CASE 
+                                            WHEN BOOL_OR(ae.activity_is_temporal)
+                                                THEN SUM(ae.activity * pct.{percentile_col})
+                                                ELSE AVG(ae.activity * pct.{percentile_col})
+                                        END
+                                    )
+                                ) * ({selected_proportion} / 100.0)
+                            END
+                        ) AS emissions_reduction_potential
+
+                    FROM '{annual_asset_path}' ae
+                    LEFT JOIN '{percentile_path}' pct
+                        ON ae.subsector = pct.original_inventory_sector
+                        AND ae.asset_type_2 = pct.asset_type
+                        {benchmark_join}
+                    {dropdown_join}
+
+                    {reduction_where_sql}
+
+                    GROUP BY 
+                        ae.asset_id,
+                        ae.sector,
+                        ae.subsector,
+                        ae.iso3_country,
+                        ae.country_name
+                ) asset_level
+
+                group by sector
+                    , subsector
+            ) a
+            
+            full outer join (
+                SELECT 
+                    year,
+                    sector,
+                    subsector,
+                    SUM(emissions_quantity) AS country_emissions_quantity
+                FROM '{table}'
+                
+                {where_sql}
+                
+                GROUP BY year, sector, subsector
+            ) ce
+                on ce.sector = a.sector
+                and ce.subsector = a.subsector
+
+            GROUP BY coalesce(a.sector, ce.sector),
+                coalesce(a.subsector, ce.subsector)
+
+            order by coalesce(a.sector, ce.sector),
+                coalesce(a.subsector, ce.subsector)
+        '''
+        # print(sector_reduction_sql_string)
+
+    
+    return subsector_reduction_sql_string

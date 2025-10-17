@@ -55,7 +55,6 @@ def show_emissions_reduction_plan():
     unique_countries = list(country_map.keys())
 
     selected_year = 2024
-
     
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1146,7 +1145,31 @@ def show_emissions_reduction_plan():
     )
 
 
-    if not df_pie.empty or not df_stacked_bar.empty or not asset_table_df.empty:
+    if not use_ct_ers:
+        subsector_download_sql = build_subsector_reduction_percentile_download(
+                                    annual_asset_path=annual_asset_path,
+                                    dropdown_join=dropdown_join,
+                                    reduction_where_sql=reduction_where_sql,
+                                    table=table,
+                                    where_sql=where_sql,
+                                    percentile_path=percentile_path,
+                                    percentile_col=percentile_col,
+                                    selected_proportion=selected_proportion,
+                                    benchmark_join=benchmark_join
+                                )
+        
+        print(subsector_download_sql)
+
+        subsector_reduction_download_df = con.execute(subsector_download_sql).df()
+
+    if not use_ct_ers:
+        dfs_for_excel = {
+            "Sector Emissions": df_pie,
+            "Sector Reduction Data": df_stacked_bar,
+            "Subsector Reduction Data": subsector_reduction_download_df,
+            "Asset Reduction Data": asset_table_df,
+        }
+    elif not df_pie.empty or not df_stacked_bar.empty or not asset_table_df.empty:
         # Create dictionary of DataFrames to export
         dfs_for_excel = {
             "Sector Emissions": df_pie,
@@ -1154,17 +1177,17 @@ def show_emissions_reduction_plan():
             "Asset Reduction Data": asset_table_df,
         }
 
-        # Use the utility function to create the Excel file
-        benchmarking_excel_file = create_excel_file(dfs_for_excel)
+    # Use the utility function to create the Excel file
+    benchmarking_excel_file = create_excel_file(dfs_for_excel)
 
-        # Fill in the placeholder with the actual download button
-        download_placeholder.download_button(
-            label="⬇ Download Data",
-            data=benchmarking_excel_file,
-            file_name="export_climate_trace_emissions_reduction.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="The downloaded data will represent your dropdown selections."
-        )
+    # Fill in the placeholder with the actual download button
+    download_placeholder.download_button(
+        label="⬇ Download Data",
+        data=benchmarking_excel_file,
+        file_name="export_climate_trace_emissions_reduction.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        help="The downloaded data will represent your dropdown selections."
+    )
 
     con.close()
 

@@ -165,14 +165,23 @@ def show_reduction_heatmap():
     numeric_cols = [c for c in combined_df.select_dtypes(include=["number"]).columns if c not in excluded_cols]
 
     # --- Colormap ---
+    # universal_red_cmap = LinearSegmentedColormap.from_list(
+    #     "universal_orange",
+    #     [
+    #         (0.0, "#FFFFFF"),   # white
+    #         (0.25, "#FFE5D0"),  # light peachy-orange
+    #         (0.55, "#F9A66C"),  # vibrant warm orange
+    #         (0.85, "#EF6C00"),  # vivid deep orange
+    #         (1.0, "#C75B12"),   # burnt orange / toned-down dark
+    #     ]
+    # )
+
     universal_red_cmap = LinearSegmentedColormap.from_list(
-        "universal_red",
+        "universal_orange",
         [
-            (0.0, "#FFFFFF"),   # pure white
-            (0.25, "#FCE0DC"),  # light peachy-pink (more visible than FAD2CF)
-            (0.55, "#F2725B"),  # lively warm coral
-            (0.85, "#E53935"),  # bright red (good punch)
-            (1.0, "#C62828"),   # medium-dark red (not as deep as B71C1C)
+            (0.00, "#FFFFFF"),   # white
+            (0.50, "#F9A66C"),   # medium orange
+            (1.00, "#E07B3D"),   # **softer terracotta orange**
         ]
     )
 
