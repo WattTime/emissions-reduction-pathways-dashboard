@@ -356,6 +356,7 @@ def show_abatement_curve():
         column_config={
             "strategy_description": st.column_config.Column(width="large"),
             "assets_impacted": st.column_config.NumberColumn(format="localized"),
+            "emissions_quantity": st.column_config.NumberColumn(format="localized"),
             "total_asset_reduction_potential": st.column_config.NumberColumn(format="localized"),
             "total_net_reduction_potential": st.column_config.NumberColumn(format="localized")})
 

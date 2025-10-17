@@ -3,6 +3,16 @@ import streamlit as st
 import duckdb
 import re
 import pandas as pd
+import os
+import sys
+import sys
+import os
+ct_main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if ct_main_path not in sys.path:
+    sys.path.append(ct_main_path)
+import glob
+text_files = glob.glob(ct_main_path + "/data/asset_emissions/asset_level_2024/*.parquet")
+df = pd.concat([pd.read_parquet(f) for f in text_files], ignore_index=True)
 from config import CONFIG
 from utils.utils_demo import *
 from utils.queries_demo import *
@@ -36,12 +46,34 @@ def show_ers_prototype():
     gadm_1_path = CONFIG['gadm_1_path']
     gadm_2_path = CONFIG['gadm_2_path']
 
-    ##### DROPDOWN MENU: SECTOR, SUBSECTOR, GAS, YEAR -------
-    # add drop-down options for filtering data
-    #sector_col, subsector_col, gas_col, year_col = st.columns(4)
-    all_sectors = list(abatement_subsector_options.keys())
+    con = duckdb.connect()
 
-    selected_sector_default = all_sectors
+    ##### DROPDOWN FOR COUNTRY -------
+    # add drop-down options for geography
+
+    country_rows = con.execute(
+        f"SELECT DISTINCT iso3_country, country_name FROM '{annual_asset_path}' WHERE country_name IS NOT NULL order by country_name"
+    ).fetchall()
+
+    country_map = {row[0]: row[1] for row in country_rows}
+    all_countries = list(country_map.keys())
+
+    with st.expander("Region"):
+        selected_country_user = st.multiselect(
+            "Country",
+            options=all_countries,
+            default=[]
+        )
+
+    if not selected_country_user:
+        selected_country = all_countries
+    else:
+        selected_country = selected_country_user
+
+    ##### DROPDOWN MENU: SECTOR, SUBSECTOR -------
+    # add drop-down options for filtering data
+
+    all_sectors = list(abatement_subsector_options.keys())
 
     with st.expander("Sector"):
         selected_sector_user = st.multiselect(
@@ -51,15 +83,13 @@ def show_ers_prototype():
         )
 
     if not selected_sector_user:
-        selected_sector = selected_sector_default
+        selected_sector = all_sectors
     else:
         selected_sector = selected_sector_user
     subsector_options = [
         subsector
         for sector in selected_sector
         for subsector in abatement_subsector_options[sector]]
-
-    selected_subsector_default = subsector_options
 
     with st.expander("Subsector"):
         selected_subsector_user = st.multiselect(
@@ -69,78 +99,86 @@ def show_ers_prototype():
         )
 
     if not selected_subsector_user:
-        selected_subsector = selected_subsector_default
+        selected_subsector = subsector_options
     else:
         selected_subsector = selected_subsector_user
 
     selected_year = 2024
 
-    ##### DROPDOWN MENU: METRIC, GROUP, COLOR, HIGHLIGHT -------
-    metric_col, group_col, color_col = st.columns(3)
+    ##### DROPDOWN MENU: AXES, GROUP, COLOR -------
+    # set up selections
 
-    with metric_col:
-        metric_options = ['Version 1', 'Version 2']
-        # if total_ers > 0:
-        #     metric_options = ['emissions_factor', 'asset_reduction_potential', 'net_reduction_potential']
-        # else:
-        #     metric_options = ['emissions_factor']
-        selected_version= st.selectbox(
-            "Version",
-            options=metric_options)
-    
-    if selected_version == 'Version 1':
-        selected_metric = 'net_reduction_potential'
-    else:
-        selected_metric = 'emissions_quantity'
+    x_axis_col, y_axis_col, group_col, color_col, threshold_col = st.columns(5)
+
+    with x_axis_col:
+        selected_x = st.selectbox(
+            "Set x-axis",
+            options=['emissions_quantity', 'net_reduction_potential', 'num_assets', 'activity'])
+        
+    with y_axis_col:
+        selected_y = st.selectbox(
+            "Set y-axis",
+            options=['emissions_factor', 'emissions_quantity', 'net_reduction_potential']
+        )
 
     with group_col:
         selected_group = st.selectbox(
-            "Group type",
+            "Group by",
             options=['asset', 'country'])
 
     with color_col:
         selected_color = st.selectbox(
-            "Color group",
+            "Color by",
             options=['sector', 'continent', 'unfccc_annex'])
+        
+    with threshold_col:
+        selected_threshold = st.text_input("Add threshold")
 
     ##### QUERY DATA -------
-    con = duckdb.connect()
 
-    # find asset information for highlighting
+    # query asset/country based on selection, create highlight filter
     if selected_group == 'asset':
-        query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year)
+        query_assets_filter = create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year, selected_country)
+        query_df_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, selected_country)
     else:
         query_assets_filter = create_country_filter_sql(annual_asset_path, selected_subsector, selected_year)
+        query_df_assets = find_sector_country_sql(annual_asset_path, selected_subsector, selected_year)
+
     df_assets_filter = con.execute(query_assets_filter).df()
     print("✅ Retrieved assets for assets filter...", flush=True)
-    
-    # query top 1000 assets using selected info and add gadm information or all countries
     print("getting asset and country-subsector data")
-    if selected_group == 'asset':
-        query_df_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
-    else:
-        query_df_assets = find_sector_country_sql(annual_asset_path, selected_subsector, selected_year)
     df_assets = con.execute(query_df_assets).df()
     df_assets =  relabel_regions(df_assets)
     print("✅ Retrieved asset / country-subsector data.", flush=True)
 
     ##### SUMMARIZE KEY METRICS -------
+    # totals for ers, emissions, reduction, assets, countries
 
-    query_totals = summarize_totals_sql(annual_asset_path, selected_subsector, selected_year)
+    query_totals = summarize_totals_sql(annual_asset_path, selected_subsector, selected_year, selected_country)
     df_totals = con.execute(query_totals).df()
     total_ers = df_totals['total_ers'][0]
     total_emissions = df_totals['total_emissions'][0]
     total_reductions = df_totals['total_reductions'][0]
     total_assets = df_totals['total_assets'][0]
     total_countries = df_totals['total_countries'][0]
-    total_ba = df_totals['total_ba'][0]
     print("✅ Aggregated totals...", flush=True)
 
+    if selected_group == 'asset':
+        total_units = total_assets
+        total_units_desc = 'total assets'
+        chart_title = (f"<b>By Assets ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
+    elif selected_group == 'country':
+        total_units = total_countries
+        total_units_desc = 'countries'
+        chart_title = (f"<b>By Country ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
 
-    ##### ADD DESCRIPTIONS FOR SECTORS -------
-    
-    summary_text = (f"<b>Total Emissions:</b> {round(total_emissions / 1000000000, 1)} billion tons of CO₂ <br>"
-                        f"<b>Total Net Reduction Potential:</b> {round(total_reductions / 1000000000, 1)} billion tons of CO₂ ")
+
+    ##### ADD HIGH-LEVEL EMISSIONS / REDUCTION INFO -------
+    # emissions vs. reductions
+
+    summary_text = (
+        f"<b>Total Emissions:</b> {round(total_emissions / 1000000000, 1)} billion tons of CO₂ <br>"
+        f"<b>Total Net Reduction Potential:</b> {round(total_reductions / 1000000000, 1)} billion tons of CO₂ ")
 
     # display text
     st.markdown(
@@ -153,6 +191,7 @@ def show_ers_prototype():
     st.markdown("<br>", unsafe_allow_html=True)
 
     ##### ASSET QUERYING -------
+    # highlight assets on curve
 
     asset_col = st.columns(1)
 
@@ -167,25 +206,17 @@ def show_ers_prototype():
         else:
             selected_assets_list = selected_assets
 
-    ##### PLOT FIGURE -------
     st.markdown("<br>", unsafe_allow_html=True)
+
+    ##### PLOT FIGURE -------
+    # add abatement curve
+
     # define variables
-    dict_color, dict_lines = define_color_lines(selected_metric)
-    fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_metric)
+    dict_color, dict_lines = define_color_lines(selected_y)
+    dict_lines={'outlier': {}}
+    fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_assets_list, selected_x, selected_y, selected_threshold, fill=True)
     print("✅ Plot generated", flush=True)
 
-    if selected_group == 'asset':
-        total_units = total_assets
-        total_units_desc = 'total assets'
-    elif selected_group == 'country':
-        total_units = total_countries
-        total_units_desc = 'countries'
-
-    if selected_group == 'asset':
-        chart_title = (f"<b>By Top {min(total_assets, 1000)} Assets ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
-    else:
-        chart_title = (f"<b>By Country ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
-    # noteee: to fix
     st.markdown(
         f"""
         <div style="text-align:left; font-size:24px; margin-top:10px;">
@@ -194,22 +225,16 @@ def show_ers_prototype():
         """,
         unsafe_allow_html=True)
 
-    # st.markdown(
-    #     f"""
-    #     <div style="text-align:left; font-size:24px; margin-top:10px;">
-    #         <b>{selected_subsector} ({selected_year})</b> {metric_unit} - <i>{total_units:,} {total_units_desc}</i>
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True)
-
     st.plotly_chart(fig, use_container_width=True)
     print("✅ Rendered abatement curve chart", flush=True)
 
     ##### EMISSIONS REDUCING SOLUTIONS -------
+    # summarize all ers within selection
+
     st.markdown(f"### {total_ers} Emissions-Reducing Solutions (ERS)")
 
     # create a table to summarize ers for sector
-    query_ers = summarize_ers_sql(annual_asset_path, selected_subsector, selected_year)
+    query_ers = summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, selected_country)
     ers_table = con.execute(query_ers).df()
 
     st.dataframe(
@@ -219,12 +244,13 @@ def show_ers_prototype():
         column_config={
             "strategy_description": st.column_config.Column(width="large"),
             "assets_impacted": st.column_config.NumberColumn(format="localized"),
+            "emissions_quantity": st.column_config.NumberColumn(format="localized"),
             "total_asset_reduction_potential": st.column_config.NumberColumn(format="localized"),
             "total_net_reduction_potential": st.column_config.NumberColumn(format="localized")})
     print(f"✅ ERS table loaded ({len(ers_table):,} rows)", flush=True)
 
     # create a table with all assets + ERS info
-    query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year)
+    query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, selected_country)
     df_table = con.execute(query_table).df()
 
     # create urls to link info to climate trace website
@@ -239,9 +265,7 @@ def show_ers_prototype():
     # filter + format table
     df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'asset_reduction_potential (t CO2e)', 'net_reduction_potential (t CO2e)']]
 
-    # NOTEEEE: TO FIX
-    # st.markdown(f"### top emitting {selected_subsector} assets")
-    st.markdown(f"### Top 200 Reduction Opportunities")
+    st.markdown("### Top 200 Reduction Opportunities")
 
     # display table
     st.dataframe(

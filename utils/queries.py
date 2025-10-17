@@ -640,7 +640,6 @@ Returns: query_assets_sql
 Type: string (SQL)
 '''
 def create_assets_filter_sql(annual_asset_path, selected_subsector, selected_year):
-    
     query_assets_sql = f'''
         SELECT DISTINCT
             ae.asset_id,
@@ -653,9 +652,32 @@ def create_assets_filter_sql(annual_asset_path, selected_subsector, selected_yea
         WHERE 
             ae.subsector = '{selected_subsector}'
             AND ae.year = {selected_year}
-        ORDER BY selected_asset_list; 
+            AND ae.reduction_q_type = 'asset'
+        ORDER BY selected_asset_list ASC; 
     '''
 
+    return query_assets_sql
+
+def create_country_filter_sql(annual_asset_path, selected_subsector, selected_year):
+    query_assets_sql = f'''
+        SELECT
+            ae.subsector,
+            ae.iso3_country,
+            ae.country_name,
+            (ae.iso3_country || ': ' || ae.subsector) AS selected_asset_list,
+            ae.total_emissions_reduced_per_year AS net_reduction_potential
+        FROM '{annual_asset_path}' ae
+        WHERE 
+            ae.subsector = '{selected_subsector}'
+            AND ae.year = {selected_year}
+            AND ae.reduction_q_type = 'asset'
+        GROUP BY   
+            ae.subsector,
+            ae.iso3_country,
+            ae.country_name,
+            ae.total_emissions_reduced_per_year
+        ORDER BY selected_asset_list;
+    '''
     return query_assets_sql
 
 '''
@@ -674,6 +696,7 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             ae.year,
             ae.asset_id,
             ae.asset_name,
+            ae.asset_type,
             ae.iso3_country,
             ae.country_name,
             ae.balancing_authority_region,
@@ -685,6 +708,7 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             ae.em_finance,
             ae.sector,
             ae.subsector,
+            ae.reduction_q_type,
             gadm0.gid_0,
             ae.gadm_1,
             gadm1.gid_1,
@@ -694,7 +718,7 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             gadm2.gadm_2_name,
             ae.activity_units,
             ae.strategy_name,
-            CASE WHEN BOOL_OR(ae.activity_is_temporal) THEN SUM(ae.activity) ELSE AVG(ae.activity) end AS activity,
+            CASE WHEN BOOL_OR(ae.activity_is_temporal) THEN SUM(ae.activity) ELSE AVG(ae.activity) END AS activity,
             SUM(ae.capacity) AS capacity,
             SUM(ae.emissions_quantity) AS emissions_quantity,
             SUM(ae.emissions_quantity) / 
@@ -710,6 +734,7 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
                 gid AS gid_0, 
                 iso3_country 
             FROM '{gadm_0_path}'
+            WHERE try_cast(gid AS INTEGER) IS NOT NULL
             ) gadm0
         ON ae.iso3_country = gadm0.iso3_country
         LEFT JOIN (
@@ -731,10 +756,12 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
         WHERE 
             subsector = '{selected_subsector}'
             AND year = {selected_year}
+            AND reduction_q_type = 'asset'
         GROUP BY
             ae.year,
             ae.asset_id,
             ae.asset_name,
+            ae.asset_type,
             ae.iso3_country,
             ae.country_name,
             ae.balancing_authority_region,
@@ -746,6 +773,7 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             ae.em_finance,
             ae.sector,
             ae.subsector,
+            ae.reduction_q_type,
             gadm0.gid_0,
             ae.gadm_1,
             gadm1.gid_1,
@@ -761,6 +789,88 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
 
     return query_sector_assets_sql
 
+def find_sector_country_sql(annual_asset_path, selected_subsector, selected_year):
+
+    query_sector_assets_sql = f'''
+        SELECT 
+            ae.year,
+            ae.iso3_country,
+            ae.country_name,
+            ae.balancing_authority_region,
+            ae.continent,
+            ae.eu,
+            ae.oecd,
+            ae.unfccc_annex,
+            ae.developed_un,
+            ae.em_finance,
+            ae.sector,
+            ae.subsector,
+            ae.reduction_q_type,
+            ae.activity_units,
+            ae.strategy_name,
+            CASE WHEN BOOL_OR(ae.activity_is_temporal) THEN SUM(ae.activity) ELSE AVG(ae.activity) END AS activity,
+            SUM(ae.capacity) AS capacity,
+            SUM(ae.emissions_quantity) AS emissions_quantity,
+            SUM(ae.emissions_quantity) / 
+                NULLIF(
+                    (CASE WHEN BOOL_OR(ae.activity_is_temporal) 
+                        THEN SUM(ae.activity) 
+                            ELSE AVG(ae.activity) END), 0) AS emissions_factor,
+            ae.emissions_reduced_at_asset AS asset_reduction_potential,
+            ae.total_emissions_reduced_per_year AS net_reduction_potential
+        FROM '{annual_asset_path}' ae
+        WHERE 
+            ae.subsector = '{selected_subsector}'
+            AND ae.year = {selected_year}
+            AND ae.reduction_q_type = 'asset'
+        GROUP BY
+            ae.year,
+            ae.iso3_country,
+            ae.country_name,
+            ae.balancing_authority_region,
+            ae.continent,
+            ae.eu,
+            ae.oecd,
+            ae.unfccc_annex,
+            ae.developed_un,
+            ae.em_finance,
+            ae.sector,
+            ae.subsector,
+            ae.reduction_q_type,
+            ae.activity_units,
+            ae.strategy_name,
+            ae.emissions_reduced_at_asset,
+            ae.total_emissions_reduced_per_year
+        ORDER BY ae.total_emissions_reduced_per_year DESC;
+    '''
+    return query_sector_assets_sql
+
+def summarize_totals_sql(annual_asset_path, selected_subsector, selected_year):
+    query_total_sql = f'''
+        WITH summary_by_asset AS (
+            SELECT
+                iso3_country,
+                balancing_authority_region,
+                asset_id,
+                strategy_name,
+                SUM(emissions_quantity) AS emissions_sum,
+                total_emissions_reduced_per_year
+            FROM '{annual_asset_path}'
+            WHERE subsector = '{selected_subsector}'
+            AND year = {selected_year}
+            AND reduction_q_type = 'asset'
+            GROUP BY iso3_country, balancing_authority_region, asset_id, strategy_name, total_emissions_reduced_per_year
+        )
+        SELECT
+            COUNT(DISTINCT strategy_name) AS total_ers,
+            SUM(emissions_sum) AS total_emissions,
+            SUM(total_emissions_reduced_per_year) AS total_reductions,
+            COUNT(DISTINCT asset_id) AS total_assets,
+            COUNT(DISTINCT iso3_country) AS total_countries,
+            COUNT(DISTINCT balancing_authority_region) AS total_ba
+        FROM summary_by_asset;
+    '''
+    return query_total_sql
 
 '''
 This is the SQL query for the ERS table in the Abatement Curve tab. 
@@ -775,9 +885,11 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year):
     query_ers_sql = f'''
         with de_dupe as (
 			select distinct asset_id
+                , subsector
                 , strategy_name
 				, strategy_description
 				, mechanism
+                , emissions_quantity
 				, emissions_reduced_at_asset
 				, total_emissions_reduced_per_year
 		
@@ -785,12 +897,14 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year):
 
 			WHERE subsector = '{selected_subsector}'
 		    	AND year = {selected_year}
+                AND reduction_q_type = 'asset'
 		)
 		
 		select strategy_name
 			, strategy_description
 			, mechanism
 			, count(distinct asset_id) assets_impacted
+            , ROUND(SUM(emissions_quantity), 0) AS emissions_quantity
 			, ROUND(SUM(emissions_reduced_at_asset), 0) AS total_asset_reduction_potential
 			, ROUND(SUM(total_emissions_reduced_per_year), 0) AS total_net_reduction_potential
 		
@@ -837,6 +951,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
                 gid AS gid_0, 
                 iso3_country 
             FROM '{gadm_0_path}'
+            WHERE try_cast(gid AS INTEGER) IS NOT NULL
             ) gadm0
         ON ae.iso3_country = gadm0.iso3_country
         LEFT JOIN (
@@ -858,6 +973,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
         WHERE 
             subsector = '{selected_subsector}'
             AND year = {selected_year}
+            AND reduction_q_type = 'asset'
         GROUP BY
             ae.year,
             ae.asset_id,
@@ -882,6 +998,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
     '''
 
     return query_table_assets_sql
+
 
 
 def create_heatmap_sql(country_selected_bool,
@@ -1188,3 +1305,85 @@ def build_subsector_reduction_percentile_download(
 
     
     return subsector_reduction_sql_string
+
+def get_ownership_sql(annual_asset_path, ownership_path):
+    query_ownership_sql = f'''
+    SELECT
+        ao.asset_id,
+        ae.asset_name,
+        ae.asset_type,
+        ae.sector,
+        ae.subsector,
+        ae.lat_lon,
+        ae.iso3_country,
+        ae.gadm_1,
+        ae.gadm_2,
+        ao.parent_name,
+        ao.parent_entity_id,
+        ao.parent_entity_type,
+        ao.parent_lei,
+        ao.parent_registration_country,
+        ao.parent_headquarter_country,
+        ao.immediate_source_owner,
+        ao.immediate_source_owner_entity_id,
+        ao.source_operator,
+        ao.source_operator_id,
+        ao.overall_share_percent,
+        SUM(ae.emissions_quantity) AS emissions_quantity,
+        SUM(ae.activity) AS activity,
+        ae.activity_units
+    FROM '{ownership_path}' ao
+    LEFT JOIN '{annual_asset_path}' ae
+        ON ao.asset_id = ae.asset_id
+    WHERE
+        ae.year = 2024
+        AND ae.reduction_q_type = 'asset'
+    GROUP BY
+        ao.asset_id,
+        ae.asset_name,
+        ae.asset_type,
+        ae.sector,
+        ae.subsector,
+        ae.lat_lon,
+        ae.iso3_country,
+        ae.gadm_1,
+        ae.gadm_2,
+        ao.parent_name,
+        ao.parent_entity_id,
+        ao.parent_entity_type,
+        ao.parent_lei,
+        ao.parent_registration_country,
+        ao.parent_headquarter_country,
+        ao.immediate_source_owner,
+        ao.immediate_source_owner_entity_id,
+        ao.source_operator,
+        ao.source_operator_id,
+        ao.overall_share_percent,
+        ae.activity_units
+    ORDER BY
+        ae.sector,
+        ae.subsector,
+        ae.iso3_country,
+        ao.asset_id;
+    '''
+    return query_ownership_sql
+
+def get_gadm_emissions_sql(gadm_0_path):
+    query_ct_emissions = f'''
+    SELECT
+        ge.iso3_country,
+        ge.subsector,
+        SUM(ge.asset_activity) AS activity,
+        SUM(ge.asset_emissions) AS emissions_quantity,
+    FROM '{gadm_0_path}' ge
+    WHERE
+        ge.year = 2024
+        AND ge.gas = 'co2e_100yr'
+    GROUP BY
+        ge.iso3_country,
+        ge.subsector
+    ORDER BY
+        ge.iso3_country,
+        ge.subsector;
+    '''
+    return query_ct_emissions

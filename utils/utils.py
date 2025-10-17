@@ -523,7 +523,7 @@ def define_color_lines(metric):
         'transportation': '#FBBA1A',
         'agriculture':  '#0BCF42',
         'buildings':  '#03A0E3',
-        'fluorinated-gas': '#B6B4B4',
+        'fluorinated-gases': '#B6B4B4',
         'mineral-extraction': '#4380F5',
         'power': '#407076'
     }
