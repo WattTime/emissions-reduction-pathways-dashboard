@@ -11,7 +11,7 @@ ct_main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__fi
 if ct_main_path not in sys.path:
     sys.path.append(ct_main_path)
 import glob
-text_files = glob.glob(ct_main_path + "/data/asset_emissions/asset_level_2024/*.parquet")
+text_files = glob.glob(ct_main_path + "/data/city_emissions/*.parquet")
 df = pd.concat([pd.read_parquet(f) for f in text_files], ignore_index=True)
 from config import CONFIG
 from utils.utils_demo import *
@@ -178,7 +178,7 @@ def show_ers_prototype():
 
     summary_text = (
         f"<b>Total Emissions:</b> {round(total_emissions / 1000000000, 1)} billion tons of CO₂ <br>"
-        f"<b>Total Net Reduction Potential:</b> {round(total_reductions / 1000000000, 1)} billion tons of CO₂ ")
+        f"<b>Total Net Reduction Potential:</b> {round(total_reductions / 1000000000, 1)} billion tons of CO₂ ({round((total_reductions/total_emissions) * 100, 1)}%)")
 
     # display text
     st.markdown(

@@ -283,41 +283,33 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, sele
     formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
     formatted_country = ', '.join(f"'{country}'" for country in selected_country)
     query_ers_sql = f'''
-        with de_dupe as (
-			select distinct asset_id
-                , subsector
-                , strategy_name
-				, strategy_description
-				, mechanism
-                , emissions_quantity
-				, emissions_reduced_at_asset
-				, total_emissions_reduced_per_year
-		
-            from '{annual_asset_path}' 
-
-			WHERE subsector IN ({formatted_subsectors})
-		    	AND year = {selected_year}
-                AND reduction_q_type = 'asset'
-                AND iso3_country IN ({formatted_country})
-		)
-		
-		select subsector
-            , strategy_name
-			, strategy_description
-			, mechanism
-			, count(distinct asset_id) assets_impacted
-            , ROUND(SUM(emissions_quantity), 0) AS emissions_quantity
-			, ROUND(SUM(emissions_reduced_at_asset), 0) AS total_asset_reduction_potential
-			, ROUND(SUM(total_emissions_reduced_per_year), 0) AS total_net_reduction_potential
-		
-		from de_dupe
-
-		group by subsector
-            , strategy_name
-			, strategy_description
-			, mechanism
-		
-		order by total_net_reduction_potential DESC
+        WITH asset_level AS (
+            SELECT asset_id,
+                subsector,
+                strategy_name,
+                strategy_description,
+                mechanism,
+                SUM(emissions_quantity) AS total_emissions_quantity,
+                MAX(emissions_reduced_at_asset) AS emissions_reduced_at_asset,
+                MAX(total_emissions_reduced_per_year) AS total_emissions_reduced_per_year 
+            FROM '{annual_asset_path}'
+            WHERE subsector IN ({formatted_subsectors})
+            AND year = {selected_year}
+            AND reduction_q_type = 'asset'
+            AND iso3_country in ({formatted_country})
+            GROUP BY asset_id, subsector, strategy_name, strategy_description, mechanism
+        )
+        SELECT subsector,
+            strategy_name,
+            strategy_description,
+            mechanism,
+            COUNT(distinct asset_id) AS assets_impacted,
+            ROUND(SUM(total_emissions_quantity), 0) AS emissions_quantity,
+            ROUND(SUM(emissions_reduced_at_asset), 0) AS total_asset_reduction_potential,
+            ROUND(SUM(total_emissions_reduced_per_year), 0) AS total_net_reduction_potential
+        FROM asset_level
+        GROUP BY subsector, strategy_name, strategy_description, mechanism
+        ORDER BY total_net_reduction_potential DESC
     '''
 
     return query_ers_sql
@@ -349,8 +341,8 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             SUM(ae.capacity) AS capacity,
             ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
-            round(ae.emissions_reduced_at_asset) AS "asset_reduction_potential (t CO2e)",
-            round(ae.total_emissions_reduced_per_year) AS "net_reduction_potential (t CO2e)"
+            ROUND(ae.emissions_reduced_at_asset) AS "asset_reduction_potential (t CO2e)",
+            ROUND(ae.total_emissions_reduced_per_year) AS "net_reduction_potential (t CO2e)"
         FROM '{annual_asset_path}' ae
         LEFT JOIN (
             SELECT DISTINCT
