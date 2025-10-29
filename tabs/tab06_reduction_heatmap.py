@@ -68,14 +68,14 @@ def show_reduction_heatmap():
         
         selected_region = st.selectbox(
             "Country", 
-            ["Global"] + unique_countries, 
+            ["Global"] + ["G20"] + unique_countries, 
             key="selected_region_HM",
             #on_change=mark_hm_recompute
         )
 
         region_condition = map_region_condition(selected_region, country_map)
 
-    country_selected_bool = selected_region != "Global"
+    country_selected_bool = selected_region not in ["Global","G20"]
 
     state_selected_bool = False
     with state_province_dropdown:
@@ -110,12 +110,19 @@ def show_reduction_heatmap():
                 # on_change=reset_city
             )
 
+    
+    g20_bool = False
+    if selected_region == 'G20':
+        g20_bool = True
+
     if selected_state_province not in ['-- Select State / Province --', 'Select a Country to Enable']:
         state_selected_bool = True
+        
 
 
     heatmap_sql = create_heatmap_sql(country_selected_bool=country_selected_bool,
                                      state_selected_bool=state_selected_bool,
+                                     g20_bool=g20_bool,
                                      region_condition=region_condition,
                                      selected_state_province=selected_state_province,
                                      annual_asset_path=annual_asset_path,

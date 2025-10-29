@@ -886,6 +886,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
 
 def create_heatmap_sql(country_selected_bool,
                        state_selected_bool,
+                       g20_bool,
                        region_condition,
                        selected_state_province,
                        annual_asset_path,
@@ -960,6 +961,17 @@ def create_heatmap_sql(country_selected_bool,
         '''
 
         field = 'gadm_1.gadm_1_name '
+
+    elif g20_bool:
+        sector_total_join = f'''
+            WHERE a.g20 = true
+        '''
+
+        table_join = f'''
+            WHERE a.g20 = true
+        '''
+
+        field = "country_name "
     
     else:
         sector_total_join = ""
@@ -1017,6 +1029,7 @@ def create_heatmap_sql(country_selected_bool,
             select distinct asset_id
                 , gadm_1
                 , gadm_2
+                , g20
                 , sector
                 , country_name
                 , total_emissions_reduced_per_year
