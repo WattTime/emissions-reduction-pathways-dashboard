@@ -36,7 +36,7 @@ def show_monthly_dashboard():
     asset_path = CONFIG['asset_emissions_country_subsector_path']
     country_subsector_stats_path = CONFIG['country_subsector_stats_path']
     country_subsector_totals_path = CONFIG['country_subsector_totals_path']
-    region_options = CONFIG['region_options']
+    region_options = [r for r in CONFIG['region_options'] if r != 'G20']
     gadm_0_path = CONFIG['gadm_0_path']
 
     con = duckdb.connect()

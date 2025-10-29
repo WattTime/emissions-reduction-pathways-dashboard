@@ -11,9 +11,10 @@ CONFIG = {
     "gadm_1_path": "data/gadm_emissions/gadm_1/*.parquet",
     "gadm_2_path": "data/gadm_emissions/gadm_2/*.parquet",
     "asset_ownership_path": "data/ownership/*.parquet",
+    "demographic_path": "data/demographic/*.parquet",
     "region_options": [
         'Global', 'EU', 'OECD', 'Non-OECD',
-        'UNFCCC Annex', 'UNFCCC Non-Annex',
+        'UNFCCC Annex', 'UNFCCC Non-Annex', 'G20',
         'Global North', 'Global South',
         'Developed Markets', 'Emerging Markets',
         'Africa', 'Antarctica', 'Asia', 'Europe',
