@@ -444,7 +444,7 @@ def show_emissions_reduction_plan():
         table = gadm_1_path
         where_clauses.append(f"gadm_1_name = '{selected_state_province}'")
     else:
-        table = country_subsector_totals_path
+        table = gadm_0_path
         where_clauses.append("gas = 'co2e_100yr'")
         where_clauses.append("country_name is not null")
 
@@ -468,6 +468,7 @@ def show_emissions_reduction_plan():
     
 
     query_country = build_country_sql(table, where_sql)
+    print(query_country)
 
     df_pie = con.execute(query_country).df()
     

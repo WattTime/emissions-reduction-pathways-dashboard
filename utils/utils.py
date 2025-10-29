@@ -82,6 +82,10 @@ def map_region_condition(region_selection, country_map=None):
         'Emerging Markets': {
             'column_name': 'em_finance',
             'column_value': True
+        },
+        'G20': {
+            'column_name': 'g20',
+            'column_value': True
         }
     }
 
