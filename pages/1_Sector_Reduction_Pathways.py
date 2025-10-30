@@ -5,8 +5,8 @@ import duckdb
 from config import CONFIG
 from utils.utils import get_release_version
 from tabs.tab01_emissions_reduction_tab import show_emissions_reduction_plan
-from tabs.tab02_abatement_curve_tab import show_abatement_curve
-from tabs.tab06_reduction_heatmap import show_reduction_heatmap
+# from tabs.tab02_abatement_curve_tab import show_abatement_curve
+# from tabs.tab06_reduction_heatmap import show_reduction_heatmap
 
 st.set_page_config(layout="wide")
 st.markdown(
@@ -59,7 +59,7 @@ st.markdown(
         f"""
         <div style='display: flex; align-items: center;'>
             <img src="data:image/png;base64,{logo_base64}" width="50" style="margin-right: 10px;" />
-            <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Emissions Reduction Pathways (Beta)</h1>
+            <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Sector Reduction Pathways (Beta)</h1>
         </div>
         <p style="margin-top: 2px; font-size: 1em; font-style: italic;">
             The data in this dashboard is from Climate TRACE release <span style='color: red;'><strong>{get_release_version(con, asset_path)}</strong></span> (excluding forestry), covering 660 million assets globally.
@@ -74,13 +74,13 @@ st.markdown(
 st.markdown("<br>", unsafe_allow_html=True)
 
 
-tab1, tab2, tab3 = st.tabs(["Reduction Opportunities", "Abatement Curve", "Heat Map"])
+tab1, = st.tabs(["Sector Reduction Pathways"])
 with tab1:
     show_emissions_reduction_plan()
 
-with tab2:
-    show_abatement_curve()
+# with tab2:
+#     show_abatement_curve()
 
-with tab3:
-    show_reduction_heatmap()
+# with tab3:
+#     show_reduction_heatmap()
 
