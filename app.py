@@ -77,42 +77,41 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+#st.markdown("<br>", unsafe_allow_html=True)
+
 
 
 
 # ---- 3-column layout ----
 col1, col2 = st.columns(2)
 
-# with col1:
-#     st.markdown(
-#     """
-#         <a href="/ERS_UI_Prototype" target="_self" style="text-decoration: none; display: block;">
-#             <div class="tool-card"
-#                 style="min-height: 450px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-#                 <div class="tool-icon" style="font-size: 8rem;">🛠️</div>
-#                 <div class="tool-title">ERS UI Prototype</div>
-#                 <div class="tool-desc">Iterative prototype page for ERS UI design, exploration, and proof-of-concepts.</div>
-#             </div>
-#         </a>
-#         """,
-#         unsafe_allow_html=True
-#     )
-    
-
 
 with col1:
     st.markdown(
     """
-        <a href="/Emissions_Reduction_Pathways" target="_self" style="text-decoration: none; display: block;">
+        <a href="/Sector_Reduction_Pathways" target="_self" style="text-decoration: none; display: block;">
             <div class="tool-card"
-                style="min-height: 450px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <div class="tool-icon" style="font-size: 8rem;">📉</div>
-                <div class="tool-title">Emissions Reduction Pathways</div>
-                <div class="tool-desc">Discover reduction opportunities across sectors, regions, and assets.</div>
+                style="min-height: 200px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div class="tool-icon" style="font-size: 6rem;">🧭</div>
+                <div class="tool-title">Sector Reduction Pathways</div>
+                <div class="tool-desc">View top-down reduction opportunities by sector and region to identify the largest impacts.</div>
+            </div>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(
+    """
+        <a href="/Heat_Map" target="_self" style="text-decoration: none; display: block;">
+            <div class="tool-card"
+                style="min-height: 200px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div class="tool-icon" style="font-size: 6rem;">🌡️</div>
+                <div class="tool-title">Heat Map</div>
+                <div class="tool-desc">Pinpoint geographic hotspots of reduction potential across sectors and regions.</div>
             </div>
         </a>
         """,
@@ -121,12 +120,30 @@ with col1:
     
 
 with col2:
+
+    st.markdown(
+    """
+        <a href="/Abatement_Curve" target="_self" style="text-decoration: none; display: block;">
+            <div class="tool-card"
+                style="min-height: 200px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div class="tool-icon" style="font-size: 6rem;">📉</div>
+                <div class="tool-title">Abatement Curve</div>
+                <div class="tool-desc">View bottom-up reduction potential to compare ERS by difficulty and scale.</div>
+            </div>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
     st.markdown(
     """
         <a href="/Monthly_Trends" target="_self" style="text-decoration: none; display: block;">
             <div class="tool-card"
-                style="min-height: 450px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <div class="tool-icon" style="font-size: 8rem;">📊</div>
+                style="min-height: 200px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div class="tool-icon" style="font-size: 6rem;">📊</div>
                 <div class="tool-title">Monthly Trends</div>
                 <div class="tool-desc">Track month-over-month emissions patterns and sector activity worldwide.</div>
             </div>
