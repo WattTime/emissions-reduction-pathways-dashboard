@@ -86,26 +86,26 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ---- 3-column layout ----
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
-with col1:
-    st.markdown(
-    """
-        <a href="/ERS_UI_Prototype" target="_self" style="text-decoration: none; display: block;">
-            <div class="tool-card"
-                style="min-height: 450px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <div class="tool-icon" style="font-size: 8rem;">🛠️</div>
-                <div class="tool-title">ERS UI Prototype</div>
-                <div class="tool-desc">Iterative prototype page for ERS UI design, exploration, and proof-of-concepts.</div>
-            </div>
-        </a>
-        """,
-        unsafe_allow_html=True
-    )
+# with col1:
+#     st.markdown(
+#     """
+#         <a href="/ERS_UI_Prototype" target="_self" style="text-decoration: none; display: block;">
+#             <div class="tool-card"
+#                 style="min-height: 450px; padding: 35px 25px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+#                 <div class="tool-icon" style="font-size: 8rem;">🛠️</div>
+#                 <div class="tool-title">ERS UI Prototype</div>
+#                 <div class="tool-desc">Iterative prototype page for ERS UI design, exploration, and proof-of-concepts.</div>
+#             </div>
+#         </a>
+#         """,
+#         unsafe_allow_html=True
+#     )
     
 
 
-with col2:
+with col1:
     st.markdown(
     """
         <a href="/Emissions_Reduction_Pathways" target="_self" style="text-decoration: none; display: block;">
@@ -121,7 +121,7 @@ with col2:
     )
     
 
-with col3:
+with col2:
     st.markdown(
     """
         <a href="/Monthly_Trends" target="_self" style="text-decoration: none; display: block;">
