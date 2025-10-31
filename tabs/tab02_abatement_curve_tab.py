@@ -7,12 +7,6 @@ import os
 import sys
 import sys
 import os
-ct_main_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-if ct_main_path not in sys.path:
-    sys.path.append(ct_main_path)
-import glob
-text_files = glob.glob(ct_main_path + "/data/asset_emissions/asset_level_2024/*.parquet")
-df = pd.concat([pd.read_parquet(f) for f in text_files], ignore_index=True)
 from config import CONFIG
 from utils.utils import *
 from utils.queries import *
@@ -53,33 +47,33 @@ def show_abatement_curve():
 
     all_sectors = list(abatement_subsector_options.keys())
 
-    with st.expander("Sector"):
+    with st.expander("Sector & Subsector", expanded=True):
         selected_sector_user = st.multiselect(
             "Sector",
             options=all_sectors,
             default=['manufacturing']
         )
+        if not selected_sector_user:
+            selected_sector = all_sectors
+        else:
+            selected_sector = selected_sector_user
 
-    if not selected_sector_user:
-        selected_sector = all_sectors
-    else:
-        selected_sector = selected_sector_user
-    subsector_options = [
-        subsector
-        for sector in selected_sector
-        for subsector in abatement_subsector_options[sector]]
+        subsector_options = [
+            subsector
+            for sector in selected_sector
+            for subsector in abatement_subsector_options[sector]
+        ]
+        subsector_options.sort()
 
-    with st.expander("Subsector"):
         selected_subsector_user = st.multiselect(
             "Subsector",
             options=subsector_options,
-            default=['iron-and-steel']
+            default=subsector_options[0]
         )
-
-    if not selected_subsector_user:
-        selected_subsector = subsector_options
-    else:
-        selected_subsector = selected_subsector_user
+        if not selected_subsector_user:
+            selected_subsector = subsector_options
+        else:
+            selected_subsector = selected_subsector_user
 
     selected_year = 2024
 
@@ -106,21 +100,10 @@ def show_abatement_curve():
     else:
         selected_country = selected_country_user
 
-    if len(selected_subsector):
+    if len(selected_subsector) > 1:
         multisector = True
     else:
         multisector = False
-
-    ##### TITLE -------
-
-    st.markdown(
-        f"""
-        <div style="text-align:center; font-size:36px; font-weight:600; margin-top:10px;">
-            {selected_subsector}
-        </div>
-        """,
-        unsafe_allow_html=True
-        )
     
     ##### DROPDOWN MENU: AXES, GROUP, COLOR -------
     # set up selections
@@ -139,9 +122,9 @@ def show_abatement_curve():
         
     with y_axis_col:
         if selected_x in ['num_assets', 'activity']:
-            y_axis_options = ['emissions_factor', 'emissions_quantity', 'net_reduction_potential', 'asset_difficulty_score']
+            y_axis_options = ['asset_difficulty_score', 'emissions_factor', 'emissions_quantity', 'net_reduction_potential']
         else:
-            y_axis_options = ['emissions_factor', 'asset_difficulty_score']
+            y_axis_options = ['asset_difficulty_score', 'emissions_factor', ]
         selected_y = st.selectbox(
             "Set y-axis",
             options=y_axis_options
@@ -150,7 +133,8 @@ def show_abatement_curve():
     with group_col:
         selected_group = st.selectbox(
             "Group by",
-            options=['asset', 'country', 'subsector', 'strategy_name'])
+            # options=['asset', 'country', 'subsector', 'strategy_name'])
+            options=['asset'])
 
     with color_col:
         selected_color = st.selectbox(
@@ -231,16 +215,22 @@ def show_abatement_curve():
     ##### ASSET QUERYING -------
     # highlight assets on curve
 
-    asset_col = st.columns(1)
+    if "selected_assets" not in st.session_state:
+        st.session_state.selected_assets = []
 
-    with asset_col[0]:
-        asset_options = df_assets[selected_list].unique()
-        selected_assets = st.multiselect(
-            highlight_text + " to highlight in curve",
-            options=asset_options,
-            default=[])
+    # Build your asset options
+    asset_options = df_assets[selected_list].unique()
+
+    # Use session_state to store and recall user-selected assets
+    selected_assets = st.multiselect(
+        highlight_text + " to highlight in curve",
+        options=asset_options,
+        default=st.session_state.selected_assets,
+        key = "selected_assets"
+    )
 
     st.markdown("<br>", unsafe_allow_html=True)
+
 
     ##### PLOT FIGURE -------
     # add abatement curve

@@ -647,16 +647,14 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     df[selected_y] = pd.to_numeric(df[selected_y], errors='coerce') 
     df[selected_color] = df[selected_color].apply(lambda x: False if pd.isna(x)==True else x)
     df['color'] = df[selected_color].map(dict_color[selected_color])
-    sector_weighted_scores = df.groupby('sector').apply(weighted_avg, x_col=selected_x, y_col=selected_y)
-    df['sector'] = pd.Categorical(df['sector'], categories=sector_weighted_scores.index, ordered=True)
 
     num_sectors = df['subsector'].nunique()
 
-    # # threshold
-    # if threshold == '':
-    #     threshold = df[selected_y].max()
-    # else:
-    #     threshold = float(threshold)
+    # threshold
+    if threshold == '':
+        threshold = df[selected_y].max() + 1
+    else:
+        threshold = float(threshold)
 
     # set up conditions
     cond0 = {
@@ -681,24 +679,31 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     elif selected_x == 'net_reduction_potential':
         x_axis_title = 'Net Emissions Reduction Potential (t of CO2e)'
     elif selected_x == 'activity':
-        if df['subsector'].nunique() == 1:
-            x_axis_title = f'Activity ({df['activity_units'][0]})'
-        else:
-            x_axis_title = 'Activity'
+        x_axis_title = f'Activity ({df['activity_units'][0]})'
 
     # change values based on y-axis
     if selected_y == 'emissions_quantity':
         y_axis_title = 'Total Emissions (t of CO2e)'
+        ascending_order = False
     elif selected_y == 'net_reduction_potential':
         y_axis_title = 'Net Emissions Reduction Potential (t of CO2e)'
+        ascending_order = False
     elif selected_y == 'emissions_factor':
         y_axis_title = 'Emissions Factor (t of CO2e / Activity)'
+        ascending_order = False
+    elif selected_y == 'asset_difficulty_score':
+        y_axis_title = 'Difficulty Score'
+        ascending_order = True
+
+    # sector weights
+    sector_weighted_scores = df.groupby('sector').apply(weighted_avg, x_col=selected_x, y_col=selected_y)
+    df['sector'] = pd.Categorical(df['sector'], categories=sector_weighted_scores.index, ordered=True)
 
     # update chart based off asset/country/BA - cumulative sum activity
     if selected_group == 'asset':
         df['asset_id'] = df['asset_id'].astype(int)
         # sort data by sector
-        df = df.sort_values(['sector', selected_y], ascending=[True, True]).reset_index(drop=True)
+        df = df.sort_values(['sector', selected_y], ascending=[True, ascending_order]).reset_index(drop=True)
         # find cumulative values, separate positive + negative values
         df['cum_pos'] = df[selected_x].where(df[selected_x] > 0, 0).cumsum().fillna(0)
         df['cum_neg'] = df[selected_x].where(df[selected_x] < 0, 0)[::-1].cumsum()[::-1]
@@ -744,62 +749,12 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
             )
         ]
         
-        if num_sectors > 3:
+        if num_sectors > 3 or len(df) > 5000:
             subset_df = bucket_and_aggregate(df, 'sector', 'subsector', 'value_cum', selected_y, 'asset_id', 'asset_name', ['emissions_quantity', 'net_reduction_potential'], ['color'])
+            asset_id_txt = 'Total Assets:'
         else:
             subset_df = df.copy()
-
-    elif selected_group in ['country']:
-
-        # pivot information
-        fds_key = ['iso3_country', 'country_name', 'sector', 'subsector', 'color', 'asset_value']
-
-        df = df.pivot_table(index=fds_key, values=['activity', 'emissions_quantity', 'asset_reduction_potential', 'net_reduction_potential'], aggfunc='sum').reset_index()
-        df['emissions_factor'] = df['emissions_quantity']/df['activity']
-    
-        #TODO: remove later!! 
-        df = df[df['emissions_factor'] <= 5]
-        # sort data by sector
-        df = df.sort_values(['sector', selected_y], ascending=[True, True]).reset_index(drop=True)
-        # add new row
-        new_row = {}
-        for col in df.columns:
-            if col == selected_color:
-                new_row[col] = df.loc[0, selected_color]
-            elif col == 'sector': 
-                new_row[col] = df.loc[0, selected_color]
-            elif pd.api.types.is_numeric_dtype(df[col]):
-                new_row[col] = 0
-            else:
-                new_row[col] = np.nan
-        df = pd.concat([df, pd.DataFrame([new_row], columns=df.columns)], ignore_index=True)
-        # find cumulative values, separate positive + negative values
-        df['cum_pos'] = df[selected_x].where(df[selected_x] > 0, 0).cumsum().fillna(0)
-        df['cum_neg'] = df[selected_x].where(df[selected_x] < 0, 0)[::-1].cumsum()[::-1]
-        last_neg_cum = df.loc[df[selected_x]<0, 'cum_neg'].iloc[-1] if (df[selected_x]<0).any() else 0
-        df.loc[df[selected_x] >= 0, 'cum_neg'] = last_neg_cum
-        df['value_cum'] = df['cum_pos'] + df['cum_neg']
-        df['value_cum'] = df['value_cum'].fillna(0)
-
-        # set up formatting
-        hover_id = 'country_name'
-        hover_name = 'country_name'
-
-        # highlights
-        selected_df = df.copy()
-        selected_df['select_asset_key'] = selected_df['iso3_country'] + ': ' + selected_df['subsector']
-        selected_df = selected_df[selected_df['select_asset_key'].isin(selected_assets)]
-        highlight_hover_text = [
-            f"{subsector}<br>{country}<br>"
-            f"Emissions: {emissions:,.0f}<br>"
-            f"Reduction: {reduction:,.0f}"
-            for subsector, country, emissions, reduction in zip(
-                selected_df['subsector'],
-                selected_df['iso3_country'], 
-                selected_df['emissions_quantity'], 
-                selected_df['net_reduction_potential']
-            )
-        ]
+            asset_id_txt = 'Asset ID:'
 
     # create the fig
     fig = go.Figure()
@@ -811,15 +766,15 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     y_offset = (y_max) * 0.01
     y_range_quantile = 1
     
-    for i in range(1, len(subset_df)-1):
+    for i in range(1, len(subset_df)-2):
         if selected_group == 'asset':
             hover_text = (
                 f"{subset_df['subsector'][i]}<br>"
                 # f"{subset_df['country_name'][i]}<br>"
-                f"<i>Total Assets: {round(subset_df[hover_id][i]):,.0f}</i><br>"
+                f"<i>{asset_id_txt} {subset_df[hover_id][i]}</i><br>"
                 f"{subset_df[hover_name][i]}</i><br>"
                 # f"Asset Type: {subset_df['asset_type'][i]}</i><br>"
-                f"EF: {round(subset_df['emissions_factor'][i], 3)}</i><br>"
+                f"{selected_y}: {round(subset_df[selected_y][i], 2)}</i><br>"
                 f"Total Emissions: {round(subset_df['emissions_quantity'][i]):,.0f}<br>"
                 f"Total Reductions: {round(subset_df['net_reduction_potential'][i]):,.0f}"
             )
@@ -833,15 +788,14 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
 
         color_value = subset_df['color'][i] 
         y_vals = [subset_df[selected_y].iloc[i], subset_df[selected_y].iloc[i+1]]
-        # if all(y <= threshold for y in y_vals):
-        #     fill_col = hex_to_rgba(color_value, 0.5)
-        # else:
-        #     if fill:
-        #         fill_col = hex_to_rgba(color_value, 0.25)
-        #     else:
-        #         fill_col = 'rgba(0,0,0,0)'
+        if all(y <= threshold for y in y_vals):
+            fill_col = hex_to_rgba(color_value, 0.9)
+        else:
+            if fill:
+                fill_col = hex_to_rgba(color_value, 0.9)
+            else:
+                fill_col = 'rgba(0,0,0,0)'
         
-        fill_col = hex_to_rgba(color_value, 0.9)
 
         if subset_df['sector'].iloc[i] != subset_df['sector'].iloc[i+1]:
             continue
@@ -863,11 +817,11 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
                 bgcolor='white',
                 font=dict(color=color_value, size=14))))
 
-    # add line for threshold if needed
-    # if threshold != df[selected_y].max():
-    #     fig.add_hline(
-    #         y=threshold,
-    #         line=dict(color='gray', width=2, dash='dot'))
+    #add line for threshold if needed
+    if threshold != (df[selected_y].max() + 1):
+        fig.add_hline(
+            y=threshold,
+            line=dict(color='gray', width=2, dash='dot'))
     
     fig.add_trace(go.Scatter(
         x=selected_df['value_cum'] - selected_df[selected_x] / 2,
