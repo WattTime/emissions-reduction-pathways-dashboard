@@ -679,7 +679,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     elif selected_x == 'net_reduction_potential':
         x_axis_title = 'Net Emissions Reduction Potential (t of CO2e)'
     elif selected_x == 'activity':
-        x_axis_title = f'Activity ({df['activity_units'][0]})'
+        x_axis_title = f'Activity ({df['activity_units'].iloc[-1]})'
 
     # change values based on y-axis
     if selected_y == 'emissions_quantity':
@@ -690,7 +690,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         ascending_order = False
     elif selected_y == 'emissions_factor':
         y_axis_title = 'Emissions Factor (t of CO2e / Activity)'
-        ascending_order = False
+        ascending_order = True
     elif selected_y == 'asset_difficulty_score':
         y_axis_title = 'Difficulty Score'
         ascending_order = True
@@ -906,7 +906,10 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
             yref='y'
         )
 
-    return fig
+    # TODO: delete later
+    df_csv = df[['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_x, selected_y]].to_csv(index=False).encode('utf-8')
+
+    return fig, df_csv
 
 def make_asset_url(row):
     url_root = 'https://climatetrace.org/explore/#'
