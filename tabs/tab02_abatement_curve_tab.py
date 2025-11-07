@@ -115,16 +115,16 @@ def show_abatement_curve():
         if multisector:
             x_axis_options = ['emissions_quantity', 'net_reduction_potential', 'num_assets']
         else:
-            x_axis_options = ['emissions_quantity', 'net_reduction_potential', 'num_assets', 'activity']
+            x_axis_options = ['activity', 'emissions_quantity', 'net_reduction_potential', 'num_assets']
         selected_x = st.selectbox(
             "Set x-axis",
             options=x_axis_options)
         
     with y_axis_col:
         if selected_x in ['num_assets', 'activity']:
-            y_axis_options = ['asset_difficulty_score', 'emissions_factor', 'emissions_quantity', 'net_reduction_potential']
+            y_axis_options = ['emissions_factor', 'asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
         else:
-            y_axis_options = ['asset_difficulty_score', 'emissions_factor', ]
+            y_axis_options = ['emissions_factor', 'asset_difficulty_score']
         selected_y = st.selectbox(
             "Set y-axis",
             options=y_axis_options
@@ -164,7 +164,13 @@ def show_abatement_curve():
     total_ers = df_totals['total_ers'][0]
     total_emissions = df_totals['total_emissions'][0]
     total_reductions = df_totals['total_reductions'][0]
-    total_assets = df_totals['total_assets'][0]
+    # TODO: REMOVE LATER
+    if selected_subsector == ['electricity-generation']:
+        NUMBER_OF_RENEWABLES = st.number_input('Number of renewable plants', value=1000)
+        RENEWABLE_MWH = st.number_input('Renewable Energy (MWh)', value=9000000000)
+        total_assets = df_totals['total_assets'][0] + int(NUMBER_OF_RENEWABLES)
+    else:
+        total_assets = df_totals['total_assets'][0]
     total_countries = df_totals['total_countries'][0]
     print("✅ Aggregated totals...", flush=True)
 
@@ -238,7 +244,68 @@ def show_abatement_curve():
     # define variables
     dict_color, dict_lines = define_color_lines(selected_y)
     dict_lines={'outlier': {}}
-    fig = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_list, selected_assets, selected_x, selected_y, selected_threshold, fill=True)
+    # TODO: remove later --- electricity generation for COP
+    if selected_subsector == ['electricity-generation']:
+        columns = ['year', 'asset_id', 'asset_name', 'asset_type', 'iso3_country',
+                'country_name', 'balancing_authority_region', 'continent', 'eu', 'oecd',
+                'unfccc_annex', 'developed_un', 'em_finance', 'sector', 'subsector',
+                'reduction_q_type', 'gid_0', 'gadm_1', 'gid_1', 'gadm_1_name', 'gadm_2',
+                'gid_2', 'gadm_2_name', 'activity_units', 'strategy_name', 'activity',
+                'capacity', 'emissions_quantity', 'emissions_factor',
+                'asset_reduction_potential', 'net_reduction_potential',
+                'asset_difficulty_score', 'selected_asset_list',
+                'selected_country_list', 'selected_subsector_list',
+                'selected_strategy_list']       
+
+        renewables_df = pd.DataFrame(index=range(int(NUMBER_OF_RENEWABLES)))
+
+        # Assign all columns at once
+        renewables_df = renewables_df.assign(
+            activity = float(RENEWABLE_MWH / NUMBER_OF_RENEWABLES),
+            year = 2024,
+            asset_id = renewables_df.index,
+            asset_name = 'Renewables Dummy',
+            asset_type = 'Renewables',
+            iso3_country = 'USA',
+            country_name = 'TEST',
+            balancing_authority_region = 'Test',
+            continent = 'North America',
+            eu = True,
+            oecd = True,
+            unfccc_annex = True,
+            developed_un = True,
+            em_finance = True,
+            sector = 'power',
+            subsector = 'electricity-generation',
+            reduction_q_type = False,
+            gid_0 = None,
+            gadm_1 = None,
+            gid_1 = None,
+            gadm_1_name = None,
+            gadm_2 = None,
+            gid_2 = None,
+            gadm_2_name = None,
+            activity_units = 'MWh',
+            strategy_name = None,
+            capacity = None,
+            emissions_quantity = 0,
+            emissions_factor = 0,
+            asset_reduction_potential = 0,
+            net_reduction_potential = 0,
+            asset_difficulty_score = 0,
+            selected_asset_list = None,
+            selected_country_list = None,
+            selected_subsector_list = None,
+            selected_strategy_list = None
+        )
+        df_assets = pd.concat([df_assets, renewables_df])
+    fig, df_csv = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_list, selected_assets, selected_x, selected_y, selected_threshold, fill=True)
+    st.download_button(
+        label="Download data as CSV",
+        data=df_csv,
+        file_name="abatement_data.csv",
+        mime="text/csv"
+    )
     print("✅ Plot generated", flush=True)
 
     st.markdown(
