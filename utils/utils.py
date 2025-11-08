@@ -598,7 +598,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         b = int(hex_color[4:6], 16)
         return f'rgba({r}, {g}, {b}, {opacity})'
 
-    def bucket_and_aggregate(df, group_col, group_2_col, total_col, bucket_col, asset_id_col, asset_name_col, sum_cols=None, first_cols=None, max_buckets=100):
+    def bucket_and_aggregate(df, group_col, group_2_col, total_col, bucket_col, asset_id_col, asset_name_col, sum_cols=None, first_cols=None, max_buckets=1000):
         sum_cols = sum_cols or []
         first_cols = first_cols or []
         result = []
@@ -704,6 +704,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         df['asset_id'] = df['asset_id'].astype(int)
         # sort data by sector
         df = df.sort_values(['sector', selected_y], ascending=[True, ascending_order]).reset_index(drop=True)
+        df = df.iloc[:-1]
         # find cumulative values, separate positive + negative values
         df['cum_pos'] = df[selected_x].where(df[selected_x] > 0, 0).cumsum().fillna(0)
         df['cum_neg'] = df[selected_x].where(df[selected_x] < 0, 0)[::-1].cumsum()[::-1]
@@ -764,7 +765,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     y_min = df[selected_y].min()
     y_max = df[selected_y].max()
     y_offset = (y_max) * 0.01
-    y_range_quantile = 1
+    y_range_quantile = 0.99
     
     for i in range(1, len(subset_df)-2):
         if selected_group == 'asset':
