@@ -299,7 +299,9 @@ def show_abatement_curve():
             selected_strategy_list = None
         )
         df_assets = pd.concat([df_assets, renewables_df])
+    
     fig, df_csv = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_list, selected_assets, selected_x, selected_y, selected_threshold, fill=True)
+    
     st.download_button(
         label="Download data as CSV",
         data=df_csv,

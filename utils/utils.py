@@ -846,6 +846,8 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         textfont=dict(size=14, color="#A94442"),
         showlegend=False))
     
+    # fig.update_yaxes(showgrid=False, zeroline=False)
+    
     # add custom legend items
     for color_label, color_value in dict_color[selected_color].items():
         fig.add_trace(go.Scatter(
@@ -865,7 +867,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         plot_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=50, r=50, t=20, b=50),
         xaxis=dict(
-            showgrid=True,
+            showgrid=False,
             zeroline=True,
             zerolinecolor='lightgrey',
             gridcolor='lightgrey',
