@@ -3,7 +3,6 @@ import streamlit as st
 import duckdb
 import re
 import pandas as pd
-import os
 import sys
 from config import CONFIG
 from utils.utils import *
@@ -38,6 +37,7 @@ def show_abatement_curve():
     gadm_1_path = CONFIG['gadm_1_path']
     gadm_2_path = CONFIG['gadm_2_path']
     region_options = CONFIG['region_options']
+    city_path = CONFIG['city_path']
 
     con = duckdb.connect()
 
@@ -97,7 +97,8 @@ def show_abatement_curve():
             "Region/Country", 
             region_options + unique_countries, 
             key="selected_region_RO",
-            on_change=mark_ro_recompute
+            default=[(region_options + unique_countries)[0]],
+            on_change=mark_ac_recompute
         )
 
         region_conditions = []
@@ -123,130 +124,143 @@ def show_abatement_curve():
         else:
             region_filter_clause = None
 
-        country_selected_bool = selected_region != "Global"
+        country_selected_bool = 'Global' not in selected_region
 
-        if not country_selected_bool:
-            state_province_options = ['Select a Region/Country to Enable']
-            selected_state_province = st.multiselect(
-                "State / Province",
-                state_province_options,
-                disabled=True,
-                key="state_province_selector_RO",
-                on_change=mark_ro_recompute
+        selection_mode = st.radio(
+            "Select by",
+            ["State/Province + County", "City"],
+            horizontal=True,
+            key="selection_mode_RO"
             )
-        else:
-            state_province_options = ['-- Select State / Province --'] + sorted(
-                row[0] for row in con.execute(
-                    f"SELECT DISTINCT gadm_1_name FROM '{gadm_1_path}' "
-                    f"WHERE ({region_filter_clause}) AND gadm_1_name IS NOT NULL"
-                ).fetchall()
-            )
+    
+        if selection_mode == "State/Province + County":
 
-            selected_state_province = st.multiselect(
-                "State / Province",
-                state_province_options,
-                disabled=False,
-                key="state_province_selector_RO",
-                on_change=reset_city
-            )
-
-        if not country_selected_bool:
-            county_district_options = ['Select a Region/Country to Enable']
-            selected_county_district = st.multiselect(
-                "County / District",
-                county_district_options,
-                disabled=True,
-                key="county_district_selector_RO",
-                on_change=mark_ro_recompute
-            )
-        else:
-            if selected_state_province and not selected_state_province.startswith("--"):
-                county_district_options = ['-- Select County / District --'] + sorted(
+            if not country_selected_bool:
+                state_province_options = ['Select specific Regions/Countries to Enable']
+                selected_state_province = st.multiselect(
+                    "State / Province",
+                    state_province_options,
+                    disabled=True,
+                    key="state_province_selector_RO",
+                    on_change=mark_ac_recompute
+                )
+            else:
+                state_province_options = sorted(
                     row[0] for row in con.execute(
-                        f"SELECT DISTINCT gadm_2_name FROM '{gadm_2_path}' WHERE gadm_1_name = '{selected_state_province.replace("'", "''")}'"
+                        f"SELECT DISTINCT gadm_1_name FROM '{gadm_1_path}' "
+                        f"WHERE ({region_filter_clause}) AND gadm_1_name IS NOT NULL"
                     ).fetchall()
                 )
-            elif col and val is not None:
-                # Convert val to string and escape any single quotes
+
+                selected_state_province = st.multiselect(
+                    "State / Province",
+                    state_province_options,
+                    disabled=False,
+                    key="state_province_selector_RO",
+                    on_change=reset_city_multiselect
+                )
+
+            if (not country_selected_bool) or (not selected_state_province):
+                county_district_options = ['Select a Region/Country to Enable']
+                selected_county_district = st.multiselect(
+                    "County / District",
+                    county_district_options,
+                    disabled=True,
+                    key="county_district_selector_RO",
+                    on_change=mark_ac_recompute
+                )
+            else:
+
+                sanitized_vals = [str(v).replace("'", "''") for v in selected_state_province]
+                val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_vals) + ")"
+
+                query = (
+                    f"SELECT DISTINCT gadm_2_name FROM '{gadm_2_path}' "
+                    f"WHERE gadm_1_name IN {val_str} AND gadm_2_name IS NOT NULL"
+                )
+
+                county_district_options = sorted(
+                    row[0] for row in con.execute(query).fetchall()
+                )
+
+                selected_county_district = st.multiselect(
+                    "County / District",
+                    county_district_options,
+                    disabled=False,
+                    key="county_district_selector_RO",
+                    on_change=reset_city_multiselect
+                )
+
+        else:
+            if not country_selected_bool:
+                city_options = ['Select a County/District to Enable']
+                selected_city = st.multiselect(
+                    "City",
+                    city_options,
+                    disabled=True,
+                    key="city_selector_RO",
+                    on_change=mark_ac_recompute
+                )
+            else:
+                def duckdb_safe_val(v):
+                    if isinstance(v, bool):
+                        return "TRUE" if v else "FALSE"
+                    return f"'{str(v).replace("'", "''")}'"
+
+
                 if isinstance(val, list):
-                    sanitized_vals = [str(v).replace("'", "''") for v in val]
-                    val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_vals) + ")"
-                    filter_clause = f"{col} IN {val_str}"
+                    val_str = "(" + ", ".join([duckdb_safe_val(v) for v in val]) + ")"
                 else:
-                    val_str = str(val).replace("'", "''")
-                    filter_clause = f"{col} = '{val_str}'"
+                    # Treat single value as a list of one
+                    val_str = f"({duckdb_safe_val(val)})"
 
-                county_district_options = ['-- Select County / District --'] + sorted(
-                    row[0] for row in con.execute(
-                        f"SELECT DISTINCT gadm_2_name FROM '{gadm_2_path}' WHERE {filter_clause}"
-                    ).fetchall()
+
+                query = f"""
+                    SELECT DISTINCT city_name 
+                    FROM '{city_path}' 
+                    WHERE {col} IN {val_str} AND city_name IS NOT NULL
+                """
+
+
+                city_options = sorted(
+                    row[0] for row in con.execute(query).fetchall()
                 )
-            else:
-                county_district_options = ['-- Select County / District --']
 
-        selected_county_district = st.multiselect(
-            "County / District",
-            county_district_options,
-            disabled=False,
-            key="county_district_selector_RO",
-            on_change=reset_city
-        )
 
-        if not country_selected_bool:
-            city_options = ['Select a Region/Country to Enable']
-            selected_city = st.multiselect(
-                "City",
-                city_options,
-                disabled=True,
-                key="city_selector_RO",
-                on_change=mark_ro_recompute
-            )
-        else:
-            def duckdb_safe_val(v):
-                if isinstance(v, bool):
-                    return "TRUE" if v else "FALSE"
-                return f"'{str(v).replace("'", "''")}'"
+                selected_city = st.multiselect(
+                    "City",
+                    city_options,
+                    disabled=False,
+                    key="city_selector_RO",
+                    on_change=reset_state_and_county_multiselect
+                )
 
-            if isinstance(val, list):
-                val_str = "(" + ", ".join([duckdb_safe_val(v) for v in val]) + ")"
-            else:
-                # Treat single value as a list of one
-                val_str = f"({duckdb_safe_val(val)})"
+    geography_filters = []
 
-            query = f"""
-                SELECT DISTINCT city_name 
-                FROM '{city_path}' 
-                WHERE {col} IN {val_str} AND city_name IS NOT NULL
-            """
+    if region_conditions:
+        geography_filters.append(f"({region_filter_clause})")
 
-            city_options = ['-- Select City --'] + sorted(
-                row[0] for row in con.execute(query).fetchall()
-            )
+    if selection_mode == "State/Province + County":
 
-            selected_city = st.multiselect(
-                "City",
-                city_options,
-                disabled=False,
-                key="city_selector_RO",
-                on_change=reset_state_and_county
-            )
-    
-        forestry_toggle = st.radio(
-            "Forestry Data:",
-            ["Exclude", "Include"],
-            horizontal=True
-        )
+        if selected_state_province:
+            sanitized_states = [str(v).replace("'", "''") for v in selected_state_province]
+            val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_states) + ")"
+            geography_filters.append(f"gadm_1_name IN {val_str}")
 
-        if forestry_toggle == "Exclude":
-            exclude_forestry = True
-        else:
-            exclude_forestry = False
+        if selected_county_district:
+            sanitized_counties = [str(v).replace("'", "''") for v in selected_county_district]
+            val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_counties) + ")"
+            geography_filters.append(f"gadm_2_name IN {val_str}")
 
-    if not selected_country_user:
-        selected_country = all_countries
     else:
-        selected_country = selected_country_user
-    
+
+        if selected_city:
+            sanitized_city = [str(v).replace("'", "''") for v in selected_city]
+            val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_city) + ")"
+            geography_filters.append(f"city_id IN {val_str}")
+
+    geography_filters_clause = " AND ".join(geography_filters) if geography_filters else "1=1"
+
     ##### DROPDOWN MENU: AXES, GROUP, COLOR -------
     # set up selections
 
@@ -290,7 +304,7 @@ def show_abatement_curve():
     ##### QUERY DATA -------
 
     # query assets based on selection
-    query_df_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, selected_country)
+    query_df_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, geography_filters_clause)
 
     print("Getting asset data")
     df_assets = con.execute(query_df_assets).df()
@@ -301,7 +315,7 @@ def show_abatement_curve():
     ##### SUMMARIZE KEY METRICS -------
     # totals for ers, emissions, reduction, assets, countries
 
-    query_totals = summarize_totals_sql(annual_asset_path, selected_subsector, selected_year, selected_country)
+    query_totals = summarize_totals_sql(annual_asset_path, selected_subsector, selected_year, geography_filters_clause)
     df_totals = con.execute(query_totals).df()
     total_ers = df_totals['total_ers'][0]
     total_emissions = df_totals['total_emissions'][0]
@@ -467,7 +481,7 @@ def show_abatement_curve():
     st.markdown(f"### {total_ers} Emissions Reduction Solutions (ERS) Strategies")
 
     # create a table to summarize ers for sector
-    query_ers = summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, selected_country)
+    query_ers = summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, geography_filters_clause)
     ers_table = con.execute(query_ers).df()
 
     st.dataframe(
@@ -483,7 +497,7 @@ def show_abatement_curve():
     print(f"✅ ERS table loaded ({len(ers_table):,} rows)", flush=True)
 
     # create a table with all assets + ERS info
-    query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, selected_country)
+    query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, geography_filters_clause)
     df_table = con.execute(query_table).df()
 
     # create urls to link info to climate trace website

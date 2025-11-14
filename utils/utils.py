@@ -417,6 +417,15 @@ def reset_state_and_county():
     st.session_state["county_district_selector_RO"] = "-- Select County / District --"
     st.session_state.needs_recompute_RO = True
 
+def reset_city_multiselect():
+    st.session_state["city_selector_RO"] = []
+    st.session_state.needs_recompute_RO = True
+
+def reset_state_and_county_multiselect():
+    st.session_state["state_province_selector_RO"] = []
+    st.session_state["county_district_selector_RO"] = []
+    st.session_state.needs_recompute_RO = True
+
 
 abatement_subsector_options = {
     'agriculture': [

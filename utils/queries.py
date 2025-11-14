@@ -640,9 +640,9 @@ Returns: query_sector_assets_sql
 Type: string (SQL)
 '''
 
-def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, selected_country):
+def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, geography_filters_clause):
+    geography_filters_clause = geography_filters_clause.replace("iso3_country", "ae.iso3_country")
     formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
-    formatted_country = ', '.join(f"'{country}'" for country in selected_country)
     query_sector_assets_sql = f'''
         SELECT 
             ae.year,
@@ -707,7 +707,7 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             ae.subsector IN ({formatted_subsectors})
             AND ae.year = {selected_year}
             AND ae.reduction_q_type = 'asset'
-            AND ae.iso3_country IN ({formatted_country})
+            AND {geography_filters_clause}
         GROUP BY
             ae.year,
             ae.asset_id,
@@ -752,9 +752,8 @@ Returns: query_total_sql
 Type: string (SQL)
 '''
 
-def summarize_totals_sql(annual_asset_path, selected_subsector, selected_year, selected_country):
+def summarize_totals_sql(annual_asset_path, selected_subsector, selected_year, geography_filters_clause):
     formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
-    formatted_country = ', '.join(f"'{country}'" for country in selected_country)
     query_total_sql = f'''
         WITH summary_by_asset AS (
             SELECT
@@ -768,7 +767,7 @@ def summarize_totals_sql(annual_asset_path, selected_subsector, selected_year, s
             WHERE subsector IN ({formatted_subsectors})
             AND year = {selected_year}
             AND reduction_q_type = 'asset'
-            AND iso3_country IN ({formatted_country})
+            AND {geography_filters_clause}
             GROUP BY iso3_country, balancing_authority_region, asset_id, strategy_name, total_emissions_reduced_per_year
         )
         SELECT
@@ -792,9 +791,8 @@ Returns: query_ers_sql, query_table_assets_sql
 Type: string (SQL)
 '''
 
-def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, selected_country):
+def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, geography_filters_clause):
     formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
-    formatted_country = ', '.join(f"'{country}'" for country in selected_country)
     query_ers_sql = f'''
         WITH asset_level AS (
             SELECT asset_id,
@@ -809,7 +807,7 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, sele
             WHERE subsector IN ({formatted_subsectors})
             AND year = {selected_year}
             AND reduction_q_type = 'asset'
-            AND iso3_country in ({formatted_country})
+            AND {geography_filters_clause}
             GROUP BY asset_id, subsector, strategy_name, strategy_description, mechanism
         )
         SELECT subsector,
@@ -828,9 +826,9 @@ def summarize_ers_sql(annual_asset_path, selected_subsector, selected_year, sele
     return query_ers_sql
 
 
-def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, selected_country):
+def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, selected_subsector, selected_year, geography_filters_clause):
+    geography_filters_clause = geography_filters_clause.replace("iso3_country", "ae.iso3_country")
     formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
-    formatted_country = ', '.join(f"'{country}'" for country in selected_country)
     query_table_assets_sql = f'''
         SELECT 
             ae.subsector,
@@ -885,7 +883,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             subsector IN ({formatted_subsectors})
             AND year = {selected_year}
             AND reduction_q_type = 'asset'
-            AND ae.iso3_country IN ({formatted_country})
+            AND {geography_filters_clause}
         GROUP BY
             ae.subsector,
             ae.year,
