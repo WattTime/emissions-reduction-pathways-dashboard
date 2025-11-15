@@ -290,6 +290,9 @@ def show_abatement_curve():
     asset_geography_filters_clause = " AND ".join(asset_geography_filters) if asset_geography_filters else "1=1"
     asset_geography_filters_clause = asset_geography_filters_clause.replace("iso3_country", "ae.iso3_country")
 
+    print(total_geography_filters)
+    print(total_geography_filters_clause)
+    
     ##### QUERY DATA -------
 
     # query assets based on selection
@@ -361,7 +364,12 @@ def show_abatement_curve():
         # set up selections
 
         #x_axis_col, y_axis_col, group_col, color_col, threshold_col = st.columns(5)
-        x_axis_col, y_axis_col, group_col, color_col = st.columns(4)
+        group_col, x_axis_col, y_axis_col, color_col = st.columns(4)
+
+        with group_col:
+            selected_group = st.selectbox(
+                "Group by",
+                options=['asset', 'country', 'subsector', 'strategy_name'])
 
         with x_axis_col:
             if multisector:
@@ -374,24 +382,25 @@ def show_abatement_curve():
             
         with y_axis_col:
             if selected_x in ['count', 'activity']:
-                y_axis_options = ['emissions_factor', 'asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
+                if selected_group != 'strategy_name':
+                    y_axis_options = ['emissions_factor', 'asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
+                else:
+                    y_axis_options = ['asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
             else:
-                y_axis_options = ['emissions_factor', 'asset_difficulty_score']
+                if selected_group != 'strategy_name':
+                    y_axis_options = ['emissions_factor', 'asset_difficulty_score']
+                else:
+                    y_axis_options = ['asset_difficulty_score']
             selected_y = st.selectbox(
                 "Set y-axis",
                 options=y_axis_options
             )
 
-        with group_col:
-            selected_group = st.selectbox(
-                "Group by",
-                options=['asset', 'country', 'subsector', 'strategy_name'])
-
         with color_col:
             if selected_group in ['asset', 'country']:
                 color_options = ['sector', 'continent', 'unfccc_annex']
             else:
-                y_axis_options = ['sector']
+                color_options = ['sector']
             selected_color = st.selectbox(
                 "Color by",
                 options=color_options)
