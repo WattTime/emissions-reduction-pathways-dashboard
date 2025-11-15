@@ -41,6 +41,24 @@ def show_abatement_curve():
 
     con = duckdb.connect()
 
+    ##### INTRO -------
+    summary_text = (
+        "The Abatement Curve dashboard is an interative tool designed to help users visualize and assess emissions reduction solutions (ERS) across selected geographies and sectors on an asset-level. "
+        "Identify abatement opportunities through ranked assets, compare strategies across sectors, and explore pathways to reduce emissions effectively."
+    )
+
+    # display text
+    st.markdown(
+        f"""
+        <div style="margin-top: 8px; font-size: 17px; line-height: 1.5;">
+            {summary_text}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     ##### DROPDOWN MENU: SECTOR, SUBSECTOR -------
     # add drop-down options for filtering data
 
@@ -120,7 +138,6 @@ def show_abatement_curve():
 
                 region_conditions.append(f"{col} IN {val_str}")
 
-        # Combine into one query filter
         if region_conditions:
             region_filter_clause = " OR ".join(region_conditions)
         else:
@@ -214,7 +231,6 @@ def show_abatement_curve():
                 if isinstance(val, list):
                     val_str = "(" + ", ".join([duckdb_safe_val(v) for v in val]) + ")"
                 else:
-                    # Treat single value as a list of one
                     val_str = f"({duckdb_safe_val(val)})"
 
 
@@ -238,77 +254,46 @@ def show_abatement_curve():
                     on_change=mark_ac_recompute
                 )
 
-    geography_filters = []
+    # create SQL filters based on geography selection
+    asset_geography_filters = []
+    total_geography_filters = []
+    total_path = gadm_0_path
 
     if region_conditions and country_selected_bool:
-        geography_filters.append(f"({region_filter_clause})")
-
+        asset_geography_filters.append(f"({region_filter_clause})")
+        total_geography_filters.append(f"({region_filter_clause})")
+        total_path = gadm_0_path
         if (selection_mode == "State/Province + County"):
 
             if selected_state_province:
                 sanitized_states = [str(v).replace("'", "''") for v in selected_state_province]
                 val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_states) + ")"
-                geography_filters.append(f"gadm_1_name IN {val_str}")
-
+                asset_geography_filters.append(f"gadm_1_name IN {val_str}")
+                total_geography_filters = f"gadm_1_name IN {val_str}"
+                total_path = gadm_1_path
             if selected_county_district:
                 sanitized_counties = [str(v).replace("'", "''") for v in selected_county_district]
                 val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_counties) + ")"
-                geography_filters.append(f"gadm_2_name IN {val_str}")
-
+                asset_geography_filters.append(f"gadm_2_name IN {val_str}")
+                total_geography_filters = f"gadm_2_name IN {val_str}"
+                total_path = gadm_2_path
         else:
 
             if selected_city:
                 sanitized_city = [str(v).replace("'", "''") for v in selected_city]
                 val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_city) + ")"
-                geography_filters.append(f"city_name IN {val_str}")
+                asset_geography_filters.append(f"city_name IN {val_str}")
+                total_geography_filters = f"city_name IN {val_str}"
+                total_path = city_path
 
-    geography_filters_clause = " AND ".join(geography_filters) if geography_filters else "1=1"
-    geography_filters_clause = geography_filters_clause.replace("iso3_country", "ae.iso3_country")
-
-    ##### DROPDOWN MENU: AXES, GROUP, COLOR -------
-    # set up selections
-
-    #x_axis_col, y_axis_col, group_col, color_col, threshold_col = st.columns(5)
-    x_axis_col, y_axis_col, group_col, color_col = st.columns(4)
-
-    with x_axis_col:
-        if multisector:
-            x_axis_options = ['emissions_quantity', 'net_reduction_potential', 'num_assets']
-        else:
-            x_axis_options = ['activity', 'emissions_quantity', 'net_reduction_potential', 'num_assets']
-        selected_x = st.selectbox(
-            "Set x-axis",
-            options=x_axis_options)
-        
-    with y_axis_col:
-        if selected_x in ['num_assets', 'activity']:
-            y_axis_options = ['emissions_factor', 'asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
-        else:
-            y_axis_options = ['emissions_factor', 'asset_difficulty_score']
-        selected_y = st.selectbox(
-            "Set y-axis",
-            options=y_axis_options
-        )
-
-    with group_col:
-        selected_group = st.selectbox(
-            "Group by",
-            # options=['asset', 'country', 'subsector', 'strategy_name'])
-            options=['asset'])
-
-    with color_col:
-        selected_color = st.selectbox(
-            "Color by",
-            options=['sector', 'continent', 'unfccc_annex'])
-        
-    # with threshold_col:
-    #     selected_threshold = st.text_input("Add threshold")
-    selected_threshold = 0
+    total_geography_filters_clause = " AND ".join(total_geography_filters) if total_geography_filters else "1=1"
+    asset_geography_filters_clause = " AND ".join(asset_geography_filters) if asset_geography_filters else "1=1"
+    asset_geography_filters_clause = asset_geography_filters_clause.replace("iso3_country", "ae.iso3_country")
 
     ##### QUERY DATA -------
 
     # query assets based on selection
-    query_df_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, geography_filters_clause)
+    query_df_assets = find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, asset_geography_filters_clause)
 
     print("Getting asset data")
     df_assets = con.execute(query_df_assets).df()
@@ -320,11 +305,10 @@ def show_abatement_curve():
         ##### SUMMARIZE KEY METRICS -------
         # totals for ers, emissions, reduction, assets, countries
 
-        query_totals = summarize_totals_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, geography_filters_clause)
+        query_totals = summarize_totals_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, asset_geography_filters_clause)
         df_totals = con.execute(query_totals).df()
         total_ers = df_totals['total_ers'][0]
-        total_emissions = df_totals['total_emissions'][0]
-        total_reductions = df_totals['total_reductions'][0]
+        total_subsectors = df_totals['total_subsectors'][0]
         total_assets = df_totals['total_assets'][0]
         # # for COP30 slides -- electricity sector
         # if selected_subsector == ['electricity-generation']:
@@ -334,7 +318,87 @@ def show_abatement_curve():
         # else:
         #     total_assets = df_totals['total_assets'][0]
         total_countries = df_totals['total_countries'][0]
+
+        query_reductions = summarize_reductions_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, asset_geography_filters_clause)
+        df_reductions = con.execute(query_reductions).df()
+        total_reductions = df_reductions['total_reductions'][0]
+
+        query_emissions = summarize_emissions_sql(total_path, selected_subsector, selected_year, total_geography_filters_clause)
+        df_emissions = con.execute(query_emissions).df()
+        total_emissions = df_emissions['emissions_quantity'].sum()
+
         print("✅ Aggregated totals...", flush=True)
+
+        ##### ADD HIGH-LEVEL EMISSIONS / REDUCTION INFO -------
+        # emissions vs. reductions
+
+        summary_text = (
+            f"<b>Total Emissions:</b> {format_emissions(total_emissions)}<br>"
+            f"<b>Total Net Reduction Potential:</b> {format_emissions(total_reductions)} ({round((total_reductions/total_emissions) * 100, 1)}%)")
+
+        # display text
+        st.markdown(
+            f"""
+            <div style="margin-top: 8px; font-size: 25px; line-height: 1.5;">
+                {summary_text}
+            </div>
+            """,
+            unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.markdown(
+            """
+            <div style="text-align:center; font-size:36px; font-weight:600; margin-top:10px;">
+                Emissions Reduction Pathways: Asset Opportunities
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        ##### DROPDOWN MENU: AXES, GROUP, COLOR -------
+        # set up selections
+
+        #x_axis_col, y_axis_col, group_col, color_col, threshold_col = st.columns(5)
+        x_axis_col, y_axis_col, group_col, color_col = st.columns(4)
+
+        with x_axis_col:
+            if multisector:
+                x_axis_options = ['emissions_quantity', 'net_reduction_potential', 'count']
+            else:
+                x_axis_options = ['activity', 'emissions_quantity', 'net_reduction_potential', 'count']
+            selected_x = st.selectbox(
+                "Set x-axis",
+                options=x_axis_options)
+            
+        with y_axis_col:
+            if selected_x in ['count', 'activity']:
+                y_axis_options = ['emissions_factor', 'asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
+            else:
+                y_axis_options = ['emissions_factor', 'asset_difficulty_score']
+            selected_y = st.selectbox(
+                "Set y-axis",
+                options=y_axis_options
+            )
+
+        with group_col:
+            selected_group = st.selectbox(
+                "Group by",
+                options=['asset', 'country', 'subsector', 'strategy_name'])
+
+        with color_col:
+            if selected_group in ['asset', 'country']:
+                color_options = ['sector', 'continent', 'unfccc_annex']
+            else:
+                y_axis_options = ['sector']
+            selected_color = st.selectbox(
+                "Color by",
+                options=color_options)
+            
+        # with threshold_col:
+        #     selected_threshold = st.text_input("Add threshold")
+        selected_threshold = 0
 
         if selected_group == 'asset':
             selected_list = 'selected_asset_list'
@@ -349,36 +413,17 @@ def show_abatement_curve():
             total_units_desc = 'countries'
             chart_title = (f"<b>By Country ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
         elif selected_group == 'subsector':
-            # TODO: FIX
             selected_list = 'selected_subsector_list'
             highlight_text = "Subsectors"
-            total_units = total_countries
-            total_units_desc = 'countries'
-            chart_title = (f"<b>By Country ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
+            total_units = total_subsectors
+            total_units_desc = 'subsectors'
+            chart_title = (f"<b>By Subsector ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
         elif selected_group == 'strategy_name':
-            # TODO: FIX
             selected_list = 'selected_strategy_list'
             highlight_text = "Strategies"
-            total_units = total_countries
-            total_units_desc = 'countries'
-            chart_title = (f"<b>By Country ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
-
-        ##### ADD HIGH-LEVEL EMISSIONS / REDUCTION INFO -------
-        # emissions vs. reductions
-
-        summary_text = (
-            f"<b>Total Emissions:</b> {round(total_emissions / 1000000000, 1)} billion tons of CO₂ <br>"
-            f"<b>Total Net Reduction Potential:</b> {round(total_reductions / 1000000000, 1)} billion tons of CO₂ ({round((total_reductions/total_emissions) * 100, 1)}%)")
-
-        # display text
-        st.markdown(
-            f"""
-            <div style="margin-top: 8px; font-size: 25px; line-height: 1.5;">
-                {summary_text}
-            </div>
-            """,
-            unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+            total_units = total_ers
+            total_units_desc = 'strategies'
+            chart_title = (f"<b>By ERS ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
 
         ##### ASSET QUERYING -------
         # highlight assets on curve
@@ -473,12 +518,17 @@ def show_abatement_curve():
             unsafe_allow_html=True)
 
         st.plotly_chart(fig, use_container_width=True)
-        st.download_button(
-            label="Download plot data as CSV",
-            data=df_csv,
-            file_name="abatement_data.csv",
-            mime="text/csv"
-        )
+
+        empty_col, download_col = st.columns([5, 1])  
+        with empty_col:
+            st.write("") 
+        with download_col:
+            st.download_button(
+                label="Download plot data",
+                data=df_csv,
+                file_name="abatement_data.csv",
+                mime="text/csv"
+            )
         print("✅ Rendered abatement curve chart", flush=True)
 
         ##### EMISSIONS REDUCING SOLUTIONS -------
@@ -487,7 +537,7 @@ def show_abatement_curve():
         st.markdown(f"### {total_ers} Emissions Reduction Solutions (ERS) Strategies")
 
         # create a table to summarize ers for sector
-        query_ers = summarize_ers_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, geography_filters_clause)
+        query_ers = summarize_ers_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, asset_geography_filters_clause)
         ers_table = con.execute(query_ers).df()
 
         st.dataframe(
@@ -498,12 +548,11 @@ def show_abatement_curve():
                 "strategy_description": st.column_config.Column(width="large"),
                 "assets_impacted": st.column_config.NumberColumn(format="localized"),
                 "emissions_quantity": st.column_config.NumberColumn(format="localized"),
-                "total_asset_reduction_potential": st.column_config.NumberColumn(format="localized"),
                 "total_net_reduction_potential": st.column_config.NumberColumn(format="localized")})
         print(f"✅ ERS table loaded ({len(ers_table):,} rows)", flush=True)
 
         # create a table with all assets + ERS info
-        query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, geography_filters_clause)
+        query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, asset_geography_filters_clause)
         df_table = con.execute(query_table).df()
 
         # create urls to link info to climate trace website
@@ -516,7 +565,7 @@ def show_abatement_curve():
         print("✅ URL columns created", flush=True)
 
         # filter + format table
-        df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'asset_reduction_potential (t CO2e)', 'net_reduction_potential (t CO2e)']]
+        df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'net_reduction_potential (t CO2e)']]
 
         st.markdown("### Top 200 Reduction Opportunities")
 
@@ -531,7 +580,6 @@ def show_abatement_curve():
                 "gadm_1_url": st.column_config.LinkColumn("state / province", display_text=r'admin=(.+?)--'),
                 "gadm_2_url": st.column_config.LinkColumn("county / municipality / district", display_text=r'admin=(.+?)--'),
                 "emissions_quantity (t CO2e)": st.column_config.NumberColumn(format="localized"),
-                "asset_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized"),
                 "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
         )
         print("✅ Final table rendered", flush=True)

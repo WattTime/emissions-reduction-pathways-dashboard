@@ -458,7 +458,8 @@ abatement_subsector_options = {
         'oil-and-gas-production',
         'oil-and-gas-refining',
         'oil-and-gas-transport',
-        'other-fossil-fuel-operations'
+        'other-fossil-fuel-operations',
+        'other-solid-fuels'
     ],
     'manufacturing': [
         'aluminum',
@@ -668,12 +669,16 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         if k not in cond: cond[k] = v
 
     # change values based on x-axis
-    if selected_x == 'num_assets':
+    if selected_x == 'count':
         selected_x = 'asset_value'
         if selected_group == 'asset':
             x_axis_title = 'Number of Assets'
         elif selected_group == 'country':
             x_axis_title = 'Number of Country-Sectors'
+        elif selected_group == 'subsector':
+            x_axis_title = 'Number of Subsectors'
+        elif selected_group == 'strategy_name':
+            x_axis_title = 'Number of ERS strategies'
     elif selected_x == 'emissions_quantity':
         x_axis_title = 'Total Emissions (t of CO2e)'
     elif selected_x == 'net_reduction_potential':
@@ -699,18 +704,22 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     sector_weighted_scores = df.groupby('sector').apply(weighted_avg, x_col=selected_x, y_col=selected_y)
     df['sector'] = pd.Categorical(df['sector'], categories=sector_weighted_scores.index, ordered=True)
 
-    # update chart based off asset/country/BA - cumulative sum activity
+    print(df.columns)
+    # update chart based off selected_group - cumulative sum activity
+    if selected_group == 'country':
+        'test'
+
+    # sort data by sector
+    df = df.sort_values(['sector', selected_y], ascending=[True, ascending_order]).reset_index(drop=True)
+    # find cumulative values, separate positive + negative values
+    df['cum_pos'] = df[selected_x].where(df[selected_x] > 0, 0).cumsum().fillna(0)
+    df['cum_neg'] = df[selected_x].where(df[selected_x] < 0, 0)[::-1].cumsum()[::-1]
+    last_neg_cum = df.loc[df[selected_x]<0, 'cum_neg'].iloc[-1] if (df[selected_x]<0).any() else 0
+    df.loc[df[selected_x] >= 0, 'cum_neg'] = last_neg_cum
+    df['value_cum'] = df['cum_pos'] + df['cum_neg']
+    df['value_cum'] = df['value_cum'].fillna(0)
+
     if selected_group == 'asset':
-        df['asset_id'] = df['asset_id'].astype(int)
-        # sort data by sector
-        df = df.sort_values(['sector', selected_y], ascending=[True, ascending_order]).reset_index(drop=True)
-        # find cumulative values, separate positive + negative values
-        df['cum_pos'] = df[selected_x].where(df[selected_x] > 0, 0).cumsum().fillna(0)
-        df['cum_neg'] = df[selected_x].where(df[selected_x] < 0, 0)[::-1].cumsum()[::-1]
-        last_neg_cum = df.loc[df[selected_x]<0, 'cum_neg'].iloc[-1] if (df[selected_x]<0).any() else 0
-        df.loc[df[selected_x] >= 0, 'cum_neg'] = last_neg_cum
-        df['value_cum'] = df['cum_pos'] + df['cum_neg']
-        df['value_cum'] = df['value_cum'].fillna(0)
 
         # set up formatting
         hover_id = 'asset_id'
@@ -1087,6 +1096,15 @@ def get_reduction_induction_json(df_stacked_bar, df_induced):
 
     return summary
 
+def format_emissions(value):
+    if value >= 1_000_000_000:
+        scaled_value = value / 1_000_000_000
+        return f"{scaled_value:,.1f} BtCO\u2082e"
+    elif value >= 1_000_000:
+        scaled_value = value / 1_000_000
+        return f"{scaled_value:,.1f} MtCO\u2082e" 
+    else:
+        return f"{value:,} tCO\u2082e" 
 
 def get_consequetial_hover_text(df_induced):
 

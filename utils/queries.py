@@ -745,7 +745,6 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
     '''
     return query_sector_assets_sql
 
-
 '''
 ABATEMENT CURVE TAB
 - summarize_totals_sql()
@@ -759,6 +758,71 @@ Type: string (SQL)
 def summarize_totals_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, geography_filters_clause):
     formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
     query_total_sql = f'''
+        WITH summary_by_asset AS (
+            SELECT
+                ae.iso3_country,
+                ae.balancing_authority_region,
+                ae.asset_id,
+                ae.subsector,
+                ae.strategy_name,
+                SUM(ae.emissions_quantity) AS emissions_sum,
+                ae.total_emissions_reduced_per_year
+            FROM '{annual_asset_path}' ae
+            LEFT JOIN (
+                SELECT DISTINCT
+                    gid AS gid_0, 
+                    iso3_country 
+                FROM '{gadm_0_path}'
+                WHERE try_cast(gid AS INTEGER) IS NOT NULL
+            ) gadm0 ON ae.iso3_country = gadm0.iso3_country
+            LEFT JOIN (
+                SELECT DISTINCT
+                    gid AS gid_1,
+                    gadm_id AS gadm_1,
+                    gadm_1_corrected_name AS gadm_1_name
+                FROM '{gadm_1_path}'
+            ) gadm1 ON ae.gadm_1 = gadm1.gadm_1
+            LEFT JOIN (
+                SELECT DISTINCT
+                    gid AS gid_2,
+                    gadm_2_id AS gadm_2,
+                    gadm_2_corrected_name AS gadm_2_name
+                FROM '{gadm_2_path}'
+            ) gadm2 ON ae.gadm_2 = gadm2.gadm_2
+            LEFT JOIN (
+                SELECT DISTINCT
+                    city_id, 
+                    city_name
+                FROM '{city_path}') city ON regexp_replace(ae.ghs_fua[1], '[{{}}]', '', 'g') = city.city_id
+            WHERE subsector IN ({formatted_subsectors})
+            AND year = {selected_year}
+            AND reduction_q_type = 'asset'
+            AND {geography_filters_clause}
+            GROUP BY ae.iso3_country, ae.balancing_authority_region, ae.asset_id, ae.subsector, ae.strategy_name, ae.total_emissions_reduced_per_year
+        )
+        SELECT
+            COUNT(DISTINCT strategy_name) AS total_ers,
+            COUNT(DISTINCT asset_id) AS total_assets,
+            COUNT(DISTINCT subsector) AS total_subsectors,
+            COUNT(DISTINCT iso3_country) AS total_countries,
+            COUNT(DISTINCT balancing_authority_region) AS total_ba
+        FROM summary_by_asset;
+    '''
+    return query_total_sql
+
+'''
+ABATEMENT CURVE TAB
+- summarize_reductions_sql()
+- This is the SQL query to total summary information for reductions (remainders + asset). 
+
+Returns: query_reductions_sql
+
+Type: string (SQL)
+'''
+
+def summarize_reductions_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, geography_filters_clause):
+    formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
+    query_reductions_sql = f'''
         WITH summary_by_asset AS (
             SELECT
                 ae.iso3_country,
@@ -801,15 +865,36 @@ def summarize_totals_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_pat
             GROUP BY ae.iso3_country, ae.balancing_authority_region, ae.asset_id, ae.strategy_name, ae.total_emissions_reduced_per_year
         )
         SELECT
-            COUNT(DISTINCT strategy_name) AS total_ers,
-            SUM(emissions_sum) AS total_emissions,
             SUM(total_emissions_reduced_per_year) AS total_reductions,
-            COUNT(DISTINCT asset_id) AS total_assets,
-            COUNT(DISTINCT iso3_country) AS total_countries,
-            COUNT(DISTINCT balancing_authority_region) AS total_ba
         FROM summary_by_asset;
     '''
-    return query_total_sql
+    return query_reductions_sql
+
+'''
+ABATEMENT CURVE TAB
+- summarize_emissions_sql()
+- This is the SQL query to totals for emissions + reductions based on selected geography + subsectors. 
+
+Returns: query_emissions_sql
+
+Type: string (SQL)
+'''
+
+def summarize_emissions_sql(path, selected_subsector, selected_year, geography_filters_clause):
+    formatted_subsectors = ', '.join(f"'{subsector}'" for subsector in selected_subsector)
+    query_emissions_sql = f'''
+        SELECT 
+            year,
+            sector,
+            SUM(emissions_quantity) AS emissions_quantity
+        FROM '{path}'
+        WHERE subsector IN ({formatted_subsectors})
+            AND year = {selected_year}
+            AND {geography_filters_clause}
+        GROUP BY year, sector
+        ORDER BY sector
+    '''
+    return query_emissions_sql
 
 '''
 ABATEMENT CURVE TAB
@@ -872,7 +957,6 @@ def summarize_ers_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, 
             mechanism,
             COUNT(distinct asset_id) AS assets_impacted,
             ROUND(SUM(total_emissions_quantity), 0) AS emissions_quantity,
-            ROUND(SUM(emissions_reduced_at_asset), 0) AS total_asset_reduction_potential,
             ROUND(SUM(total_emissions_reduced_per_year), 0) AS total_net_reduction_potential
         FROM asset_level
         GROUP BY subsector, strategy_name, strategy_description, mechanism
@@ -908,7 +992,8 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
             ROUND(ae.emissions_reduced_at_asset) AS "asset_reduction_potential (t CO2e)",
-            ROUND(ae.total_emissions_reduced_per_year) AS "net_reduction_potential (t CO2e)"
+            ROUND(ae.total_emissions_reduced_per_year) AS "net_reduction_potential (t CO2e)",
+            ae.asset_difficulty_score
         FROM '{annual_asset_path}' ae
         LEFT JOIN (
             SELECT DISTINCT
@@ -960,8 +1045,9 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             ae.strategy_description,
             ae.mechanism,
             ae.emissions_reduced_at_asset,
-            ae.total_emissions_reduced_per_year
-        ORDER BY total_emissions_reduced_per_year DESC
+            ae.total_emissions_reduced_per_year,
+            ae.asset_difficulty_score
+        ORDER BY ae.asset_difficulty_score
         LIMIT 200
     '''
 
