@@ -417,15 +417,6 @@ def reset_state_and_county():
     st.session_state["county_district_selector_RO"] = "-- Select County / District --"
     st.session_state.needs_recompute_RO = True
 
-def reset_city_multiselect():
-    st.session_state["city_selector_RO"] = []
-    st.session_state.needs_recompute_RO = True
-
-def reset_state_and_county_multiselect():
-    st.session_state["state_province_selector_RO"] = []
-    st.session_state["county_district_selector_RO"] = []
-    st.session_state.needs_recompute_RO = True
-
 
 abatement_subsector_options = {
     'agriculture': [
@@ -693,10 +684,10 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     # change values based on y-axis
     if selected_y == 'emissions_quantity':
         y_axis_title = 'Total Emissions (t of CO2e)'
-        ascending_order = False
+        ascending_order = True
     elif selected_y == 'net_reduction_potential':
         y_axis_title = 'Net Emissions Reduction Potential (t of CO2e)'
-        ascending_order = False
+        ascending_order = True
     elif selected_y == 'emissions_factor':
         y_axis_title = 'Emissions Factor (t of CO2e / Activity)'
         ascending_order = True
@@ -713,7 +704,6 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         df['asset_id'] = df['asset_id'].astype(int)
         # sort data by sector
         df = df.sort_values(['sector', selected_y], ascending=[True, ascending_order]).reset_index(drop=True)
-        df = df.iloc[:-1]
         # find cumulative values, separate positive + negative values
         df['cum_pos'] = df[selected_x].where(df[selected_x] > 0, 0).cumsum().fillna(0)
         df['cum_neg'] = df[selected_x].where(df[selected_x] < 0, 0)[::-1].cumsum()[::-1]
@@ -728,17 +718,17 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
 
         # add new row
         new_row = {}
-        last_row = df.iloc[-1]
+        first_row = df.iloc[0]
         for col in df.columns:
             if col == selected_color:
-                new_row[col] = last_row[selected_color]
+                new_row[col] = first_row[selected_color]
             elif col == 'sector': 
-                new_row[col] = last_row['sector'] 
+                new_row[col] = first_row['sector'] 
             elif pd.api.types.is_numeric_dtype(df[col]):
                 new_row[col] = 0
             else:
-                new_row[col] = np.nan
-        df = pd.concat([df, pd.DataFrame([new_row], columns=df.columns)], ignore_index=True)
+                new_row[col] = first_row[col]
+        df = pd.concat([pd.DataFrame([new_row], columns=df.columns), df], ignore_index=True)
 
         #asset highlights
         selected_df = df[df[selected_list].isin(selected_assets)].copy()
@@ -776,7 +766,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     y_offset = (y_max) * 0.01
     y_range_quantile = 0.99
     
-    for i in range(1, len(subset_df)-2):
+    for i in range(len(subset_df) - 1):
         if selected_group == 'asset':
             hover_text = (
                 f"{subset_df['subsector'][i]}<br>"
@@ -818,7 +808,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
             line=dict(color=f'{color_value}', width=4),
             mode='lines',
             name=f'{subset_df['asset_name'][i]}',
-            line_shape='linear',
+            line_shape='vh',
             legendgroup=f'{color_value}',
             showlegend=False,
             hoverinfo='text',
@@ -918,8 +908,8 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
             yref='y'
         )
 
-    # TODO: delete later
-    df_csv = df[['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_x, selected_y]].to_csv(index=False).encode('utf-8')
+    # create csv to download the data
+    df_csv = df.iloc[1:][['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
 
     return fig, df_csv
 
@@ -1165,6 +1155,8 @@ def mark_ro_recompute():
 
 def mark_ac_recompute():
     st.session_state.needs_recompute_abatement_curve = True
+    if not st.session_state["selected_region_RO"]:
+        st.session_state["selected_region_RO"] = ["Global"]
 
 def mark_mt_recompute():
     st.session_state.needs_recompute_monthly_trends = True
