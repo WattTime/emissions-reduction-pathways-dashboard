@@ -46,8 +46,6 @@ def show_abatement_curve():
         "The Abatement Curve dashboard is an interative tool designed to help users visualize and assess emissions reduction solutions (ERS) across selected geographies and sectors on an asset-level. "
         "Identify abatement opportunities through ranked assets, compare strategies across sectors, and explore pathways to reduce emissions effectively."
     )
-
-    # display text
     st.markdown(
         f"""
         <div style="margin-top: 8px; font-size: 17px; line-height: 1.5;">
@@ -261,7 +259,7 @@ def show_abatement_curve():
 
     if region_conditions and country_selected_bool:
         asset_geography_filters.append(f"({region_filter_clause})")
-        total_geography_filters.append(f"({region_filter_clause})")
+        total_geography_filters = [(f"({region_filter_clause})")]
         total_path = gadm_0_path
         if (selection_mode == "State/Province + County"):
 
@@ -269,13 +267,13 @@ def show_abatement_curve():
                 sanitized_states = [str(v).replace("'", "''") for v in selected_state_province]
                 val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_states) + ")"
                 asset_geography_filters.append(f"gadm_1_name IN {val_str}")
-                total_geography_filters = f"gadm_1_name IN {val_str}"
+                total_geography_filters = [f"gadm_1_corrected_name IN {val_str}"]
                 total_path = gadm_1_path
             if selected_county_district:
                 sanitized_counties = [str(v).replace("'", "''") for v in selected_county_district]
                 val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_counties) + ")"
                 asset_geography_filters.append(f"gadm_2_name IN {val_str}")
-                total_geography_filters = f"gadm_2_name IN {val_str}"
+                total_geography_filters = [f"gadm_2_corrected_name IN {val_str}"]
                 total_path = gadm_2_path
         else:
 
@@ -283,15 +281,12 @@ def show_abatement_curve():
                 sanitized_city = [str(v).replace("'", "''") for v in selected_city]
                 val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_city) + ")"
                 asset_geography_filters.append(f"city_name IN {val_str}")
-                total_geography_filters = f"city_name IN {val_str}"
+                total_geography_filters = [f"city_name IN {val_str}"]
                 total_path = city_path
 
     total_geography_filters_clause = " AND ".join(total_geography_filters) if total_geography_filters else "1=1"
     asset_geography_filters_clause = " AND ".join(asset_geography_filters) if asset_geography_filters else "1=1"
     asset_geography_filters_clause = asset_geography_filters_clause.replace("iso3_country", "ae.iso3_country")
-
-    print(total_geography_filters)
-    print(total_geography_filters_clause)
     
     ##### QUERY DATA -------
 
@@ -369,7 +364,7 @@ def show_abatement_curve():
         with group_col:
             selected_group = st.selectbox(
                 "Group by",
-                options=['asset', 'country', 'subsector', 'strategy_name'])
+                options=['asset', 'country', 'strategy_name'])
 
         with x_axis_col:
             if multisector:
@@ -421,12 +416,6 @@ def show_abatement_curve():
             total_units = total_countries
             total_units_desc = 'countries'
             chart_title = (f"<b>By Country ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
-        elif selected_group == 'subsector':
-            selected_list = 'selected_subsector_list'
-            highlight_text = "Subsectors"
-            total_units = total_subsectors
-            total_units_desc = 'subsectors'
-            chart_title = (f"<b>By Subsector ({selected_year})</b> - <i>{total_units:,} {total_units_desc}</i>")
         elif selected_group == 'strategy_name':
             selected_list = 'selected_strategy_list'
             highlight_text = "Strategies"
@@ -576,8 +565,24 @@ def show_abatement_curve():
         # filter + format table
         df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'net_reduction_potential (t CO2e)']]
 
+        st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### Top 200 Reduction Opportunities")
 
+        summary_text = (
+            "Opportunities are ranked based on <b>difficulty score</b>. The difficulty score reflects the potential impact, effort, and capital cost required to implement "
+            "an emissions reduction solution. Higher-ranked opportunities indicate easier, more practial solutions.")
+        
+        st.markdown(
+            f"""
+            <div style="margin-top: 8px; font-size: 17px; line-height: 1.5;">
+                {summary_text}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        
         # display table
         st.dataframe(
             df_table,

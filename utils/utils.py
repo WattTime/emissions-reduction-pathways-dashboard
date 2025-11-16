@@ -675,8 +675,6 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
             x_axis_title = 'Number of Assets'
         elif selected_group == 'country':
             x_axis_title = 'Number of Country-Sectors'
-        elif selected_group == 'subsector':
-            x_axis_title = 'Number of Subsectors'
         elif selected_group == 'strategy_name':
             x_axis_title = 'Number of ERS strategies'
     elif selected_x == 'emissions_quantity':
@@ -697,7 +695,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         y_axis_title = 'Emissions Factor (t of CO2e / Activity)'
         ascending_order = True
     elif selected_y == 'asset_difficulty_score':
-        y_axis_title = 'Difficulty Score'
+        y_axis_title = 'Difficulty Score (1-10)'
         ascending_order = True
 
     # update chart based off selected_group - cumulative sum activity
@@ -708,21 +706,10 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
                  activity=('activity', 'sum'),
                  emissions_quantity=('emissions_quantity', 'sum'),
                  net_reduction_potential=('net_reduction_potential', 'sum'),
-                 count=('asset_value', 'sum'),
+                 asset_value=('asset_value', 'first'),
                  emissions_factor=('emissions_factor', 'median'),
                  asset_difficulty_score=('asset_difficulty_score', 'median')).reset_index()
-        df['emissions_factor'] = np.where(df['activity'].isna(), df['emissions_factor'], df['emissions_quantity'] / df['activity'])
-
-    if selected_group == 'subsector':
-        df = df.groupby(
-            [selected_list, selected_color, 'subsector', 'color']).agg(
-                activity=('activity', 'sum'),
-                emissions_quantity=('emissions_quantity', 'sum'),
-                net_reduction_potential=('net_reduction_potential', 'sum'),
-                count=('asset_value', 'sum'),
-                emissions_factor=('emissions_factor', 'median'),
-                asset_difficulty_score=('asset_difficulty_score', 'median')).reset_index()
-        df['emissions_factor'] = np.where(df['activity'].isna(), df['emissions_factor'], df['emissions_quantity'] / df['activity'])                                                                                          
+        df['emissions_factor'] = np.where(df['activity'].isna(), df['emissions_factor'], df['emissions_quantity'] / df['activity'])                                                                                  
         
     if selected_group == 'strategy_name':
         df = df.groupby(
@@ -730,9 +717,9 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
                 activity=('activity', 'sum'),
                 emissions_quantity=('emissions_quantity', 'sum'),
                 net_reduction_potential=('net_reduction_potential', 'sum'),
-                count=('asset_value', 'sum'),
-                  emissions_factor=('emissions_factor', 'median'),
-                  asset_difficulty_score=('asset_difficulty_score', 'median')).reset_index()
+                asset_value=('asset_value', 'first'),
+                emissions_factor=('emissions_factor', 'median'),
+                asset_difficulty_score=('asset_difficulty_score', 'median')).reset_index()
         df['emissions_factor'] = np.where(df['activity'].isna(), df['emissions_factor'], df['emissions_quantity'] / df['activity'])
 
     # apply sector weights
@@ -829,29 +816,6 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         ]
         subset_df = df.copy()
 
-    elif selected_group == 'subsector':
-        # set up formatting
-        hover_id = 'sector'
-        hover_name = 'subsector'
-        #asset highlights
-        highlight_hover_text = [
-            (
-                f"{hover_val}<br>"
-                f"<i>{hover_val2}</i><br>"
-                f"{selected_y}: {yval}<br><br>"
-                f"Emissions: {emissions:,.0f}<br>"
-                f"Reduction: {reduction:,.0f}"
-            )
-            for hover_val, hover_val2, yval, emissions, reduction in zip(
-                selected_df[hover_id],
-                selected_df[hover_name],
-                selected_df[selected_y],
-                selected_df['emissions_quantity'],
-                selected_df['net_reduction_potential']
-            )
-        ]
-        subset_df = df.copy()
-
     elif selected_group == 'strategy_name':
         # set up formatting
         hover_id = 'subsector'
@@ -902,14 +866,6 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         elif selected_group == 'country':
             hover_text = (
                 f"{subset_df['subsector'][i]}<br>"
-                f"{subset_df[hover_id][i]}<br>"
-                f"{subset_df[hover_name][i]}<br>"
-                f"{selected_y}: {round(subset_df[selected_y][i], 2)}</i><br><br>"
-                f"Emissions: {round(subset_df['emissions_quantity'][i]):,.0f}<br>"
-                f"Reduction: {round(subset_df['net_reduction_potential'][i]):,.0f}"
-            )
-        elif selected_group == 'subsector':
-            hover_text = (
                 f"{subset_df[hover_id][i]}<br>"
                 f"{subset_df[hover_name][i]}<br>"
                 f"{selected_y}: {round(subset_df[selected_y][i], 2)}</i><br><br>"
@@ -1053,8 +1009,6 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         df_csv = df.iloc[1:-1][['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_color, selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
     if selected_group == 'country':
         df_csv = df.iloc[1:-1][['iso3_country', 'country_name', selected_color, selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
-    if selected_group == 'subsector':
-        df_csv = df.iloc[1:-1][['sector', 'subsector', selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
     if selected_group == 'strategy_name':
         df_csv = df.iloc[1:-1][['sector', 'subsector', 'strategy_name', selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
     return fig, df_csv
@@ -1241,7 +1195,7 @@ def format_emissions(value):
         scaled_value = value / 1_000_000
         return f"{scaled_value:,.1f} MtCO\u2082e" 
     else:
-        return f"{value:,} tCO\u2082e" 
+        return f"{value:,.0f} tCO\u2082e" 
 
 def get_consequetial_hover_text(df_induced):
 
