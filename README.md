@@ -53,7 +53,7 @@ Workflow:
 
 Use this when only updating files in the `/data/` directory and no code changes are required. This merge type should be used for monthly data releases.
 
-**Important:** Do not merge `stage` into `main` during data-only updates. Instead, merge the branch once into `stage`, and cherry-pick into `main`.
+**Important:** Do not merge `stage` into `main` during data-only updates. Instead, merge the branch once into `stage`, and cherry-pick its commit into `main`.
 
 #### Steps:
 
@@ -61,6 +61,7 @@ Use this when only updating files in the `/data/` directory and no code changes 
    - `git checkout stage`
    - `git pull origin stage`
    - `git checkout -b data-update-<VX.X>`
+      - Example Branch: `data-update-V5.1`
 
 2. Run data pipeline, then commit/push:
    - `git add data/`
