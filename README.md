@@ -39,7 +39,7 @@ Fly.io handles production deployments for the app. Follow these steps to get set
 
 Before deploying, determine which type of merge is needed. This ensures we use the correct merge strategy for `stage` and `main`.
 
-### 1️⃣ Full Deployment (Standard)
+### 1️⃣ Full Deployment (New Feature Releases)
 
 Use this when you are deploying **new features, UI updates, logic changes, bug fixes**, or anything that affects the app beyond `/data/`.
 
