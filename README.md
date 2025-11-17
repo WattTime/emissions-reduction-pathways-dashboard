@@ -84,7 +84,7 @@ Use this when only updating files in the `/data/` directory and no code changes 
 
    The commit hash is the short alphanumeric code at the start of the line.  
    Example output:  
-     3f9a2b1  Data update: refreshed 11-2025 data for V5.1  
+      - `3f9a2b1  Data update: refreshed 11-2025 data for V5.1`  
    In this example, the commit hash is: **3f9a2b1**
 
    Now apply that commit to `main`:
