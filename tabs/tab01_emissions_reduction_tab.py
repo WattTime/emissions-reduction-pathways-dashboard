@@ -56,30 +56,32 @@ def show_emissions_reduction_plan():
 
     selected_year = 2024
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    # st.markdown("<br>", unsafe_allow_html=True)
 
-    radio_col, year_col, download_col = st.columns([10, 1, 1])
+    year_col, radio_col, download_col = st.columns([1.1, 10, 1])
 
-    with radio_col:
-        reduction_method = st.radio(
-            "Select emissions reduction method:",
-            [
-                "Climate TRACE Solutions",
-                "Percentile Benchmarking"
-            ],
-            horizontal=True,
-            index=0,
-            help=(
-                "**Climate TRACE Solutions**: Uses asset-specific emissions reduction strategies "
-                "developed by Climate TRACE sector leads.\n\n"
-                "**Percentile Benchmarking**: Compares each asset’s emissions factor against " 
-                "similar assets within the same subsector. Results are shown as global "
-                "or country-level percentiles, helping identify how efficient or polluting an asset is relative "
-                "to its peers, and how much room there is for improvement."
-            ),
-            key="reduction_method_RO",
-            on_change=mark_ro_recompute
-        )
+    # with radio_col:
+    #     reduction_method = st.radio(
+    #         "Select emissions reduction method:",
+    #         [
+    #             "Climate TRACE Solutions",
+    #             "Percentile Benchmarking"
+    #         ],
+    #         horizontal=True,
+    #         index=0,
+    #         help=(
+    #             "**Climate TRACE Solutions**: Uses asset-specific emissions reduction strategies "
+    #             "developed by Climate TRACE sector leads.\n\n"
+    #             "**Percentile Benchmarking**: Compares each asset’s emissions factor against " 
+    #             "similar assets within the same subsector. Results are shown as global "
+    #             "or country-level percentiles, helping identify how efficient or polluting an asset is relative "
+    #             "to its peers, and how much room there is for improvement."
+    #         ),
+    #         key="reduction_method_RO",
+    #         on_change=mark_ro_recompute
+    #     )
+
+    reduction_method = "Climate TRACE Solutions"
 
     with year_col:
         st.text_input(

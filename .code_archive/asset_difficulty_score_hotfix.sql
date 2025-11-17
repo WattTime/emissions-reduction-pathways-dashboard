@@ -15,7 +15,7 @@ FROM reductions_data_fusion rdf
 
 LEFT JOIN ( 
 	select cs.*
-			, sdf.strategy_id strategy_id_fixed
+                , sdf.strategy_id strategy_id_fixed
 			
 	from categorical_scoring_dpm_20251111 cs
 	left join strategy_data_fusion sdf
