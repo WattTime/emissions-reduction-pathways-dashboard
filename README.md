@@ -9,7 +9,7 @@ Before deploying or merging any changes, make sure you’re properly signed into
 ### 1️⃣ Streamlit Setup
 
 1. Go to Streamlit Cloud: https://share.streamlit.io
-2. Log in or sign up using your WattTime email.
+2. Log in or sign up using your WattTime email, the same email you use in the Github account that pushes to this repo.
 3. Once logged in, you should see the `emissions-reduction-pathways-dashboard` listed under your apps.
 4. Confirm that you can open the app and access the “Manage App” drawer in the bottom-right corner. This drawer allows you to reboot the app when needed.
 
