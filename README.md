@@ -106,7 +106,9 @@ Use this when only updating files in the `/data/` directory and no code changes 
    - If using Streamlit Cloud, click the **three dots** next to the app name and select **Reboot**.
    - If you are already inside the staging app, open the **Manage App** drawer in the bottom-right corner, click the **three dots**, and select **Reboot app**. This will pull in the latest commits from the `stage` branch into the UI.
 
-3. This will pull in the latest commits from the `stage` branch into the UI Stress-test any new features in the staging environment to confirm stability.  
+3. This will pull in the latest commits from the `stage` branch into the UI. Stress-test any new features in the staging environment to confirm stability.
+   - Stage Link: https://emissions-reduction-pathways-dashboard-stage.streamlit.app/ 
+   
    💡 If it works (or crashes) in `stage`, it will likely behave the same in `main`.
 
 
