@@ -57,46 +57,6 @@ def show_abatement_curve():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    ##### DROPDOWN MENU: SECTOR, SUBSECTOR -------
-    # add drop-down options for filtering data
-
-    all_sectors = list(abatement_subsector_options.keys())
-
-    with st.expander("Sector & Subsector", expanded=True):
-        selected_sector_user = st.multiselect(
-            "Sector",
-            options=all_sectors,
-            default=['manufacturing']
-        )
-        if not selected_sector_user:
-            selected_sector = all_sectors
-        else:
-            selected_sector = selected_sector_user
-
-        subsector_options = [
-            subsector
-            for sector in selected_sector
-            for subsector in abatement_subsector_options[sector]
-        ]
-        subsector_options.sort()
-
-        selected_subsector_user = st.multiselect(
-            "Subsector",
-            options=subsector_options,
-            default=subsector_options[0]
-        )
-        if not selected_subsector_user:
-            selected_subsector = subsector_options
-        else:
-            selected_subsector = selected_subsector_user
-
-    selected_year = 2024
-
-    if len(selected_subsector) > 1:
-        multisector = True
-    else:
-        multisector = False
-
     ##### DROPDOWN FOR COUNTRY -------
     # add drop-down options for geography
 
@@ -107,187 +67,258 @@ def show_abatement_curve():
     country_map = {row[0]: row[1] for row in country_rows}
     unique_countries = list(country_map.keys())
 
-    with st.expander("Geography"):
+    geography_col, sector_program_col = st.columns(2)
+    with geography_col:
+        with st.expander("Geography", expanded=True):
 
-        region_country_options = region_options + unique_countries
-        
-        selected_region = st.multiselect(
-            "Region/Country", 
-            region_country_options, 
-            key="selected_region_RO",
-            default="Global",
-            on_change=mark_ac_recompute
-        )
+            region_country_options = region_options + unique_countries
+            region_help = ("Select by region, continent, country, etc. **Global** is selected by default. When Global is selected, all regions are included.")
 
-        region_conditions = []
-
-        for i in selected_region:
-            cond = map_region_condition(i, country_map)
-            if cond is not None:
-                col = cond['column_name']
-                val = cond['column_value']
-
-                if isinstance(val, list):
-                    sanitized_vals = [str(v).replace("'", "''") for v in val]
-                    val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_vals) + ")"
-                else:
-                    sanitized_val = str(val).replace("'", "''")
-                    val_str = f"('{sanitized_val}')"
-
-                region_conditions.append(f"{col} IN {val_str}")
-
-        if region_conditions:
-            region_filter_clause = " OR ".join(region_conditions)
-        else:
-            region_filter_clause = None
-
-        country_selected_bool = 'Global' not in selected_region
-
-        selection_mode = st.radio(
-            "Select by",
-            ["State/Province + County", "City"],
-            horizontal=True,
-            key="selection_mode_RO",
-            on_change=mark_ac_recompute
+            selected_region = st.multiselect(
+                "Region/Country", 
+                region_country_options, 
+                key="selected_region_RO",
+                help=region_help,
+                default="Global",
+                on_change=mark_ac_recompute
             )
-    
-        if selection_mode == "State/Province + County":
 
-            if not country_selected_bool:
-                state_province_options = ['Select specific Regions/Countries to Enable']
-                selected_state_province = st.multiselect(
-                    "State / Province",
-                    state_province_options,
-                    disabled=True,
-                    key="state_province_selector_RO",
-                    on_change=mark_ac_recompute
-                )
+            region_conditions = []
+
+            for i in selected_region:
+                cond = map_region_condition(i, country_map)
+                if cond is not None:
+                    col = cond['column_name']
+                    val = cond['column_value']
+
+                    if isinstance(val, list):
+                        sanitized_vals = [str(v).replace("'", "''") for v in val]
+                        val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_vals) + ")"
+                    else:
+                        sanitized_val = str(val).replace("'", "''")
+                        val_str = f"('{sanitized_val}')"
+
+                    region_conditions.append(f"{col} IN {val_str}")
+
+            if region_conditions:
+                region_filter_clause = " OR ".join(region_conditions)
             else:
-                state_province_options = sorted(
-                    row[0] for row in con.execute(
-                        f"SELECT DISTINCT gadm_1_corrected_name FROM '{gadm_1_path}' "
-                        f"WHERE ({region_filter_clause}) AND gadm_1_name IS NOT NULL"
-                    ).fetchall()
+                region_filter_clause = None
+
+            country_selected_bool = 'Global' not in selected_region
+
+            selection_mode = st.radio(
+                "Select by",
+                ["State/Province + County", "City"],
+                horizontal=True,
+                key="selection_mode_RO",
+                on_change=mark_ac_recompute
                 )
+        
+            if selection_mode == "State/Province + County":
 
-                selected_state_province = st.multiselect(
-                    "State / Province",
-                    state_province_options,
-                    disabled=False,
-                    key="state_province_selector_RO",
-                    on_change=mark_ac_recompute
-                )
-
-            if (not country_selected_bool) or (not selected_state_province):
-                county_district_options = ['Select a Region/Country to Enable']
-                selected_county_district = st.multiselect(
-                    "County / District",
-                    county_district_options,
-                    disabled=True,
-                    key="county_district_selector_RO",
-                    on_change=mark_ac_recompute
-                )
-            else:
-
-                sanitized_vals = [str(v).replace("'", "''") for v in selected_state_province]
-                val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_vals) + ")"
-
-                query = (
-                    f"SELECT DISTINCT gadm_2_corrected_name FROM '{gadm_2_path}' "
-                    f"WHERE gadm_1_corrected_name IN {val_str} AND gadm_2_name IS NOT NULL"
-                )
-
-                county_district_options = sorted(
-                    row[0] for row in con.execute(query).fetchall()
-                )
-
-                selected_county_district = st.multiselect(
-                    "County / District",
-                    county_district_options,
-                    disabled=False,
-                    key="county_district_selector_RO",
-                    on_change=mark_ac_recompute
-                )
-
-        else:
-            if not country_selected_bool:
-                city_options = ['Select a County/District to Enable']
-                selected_city = st.multiselect(
-                    "City",
-                    city_options,
-                    disabled=True,
-                    key="city_selector_RO",
-                    on_change=mark_ac_recompute
-                )
-            else:
-                def duckdb_safe_val(v):
-                    if isinstance(v, bool):
-                        return "TRUE" if v else "FALSE"
-                    return f"'{str(v).replace("'", "''")}'"
-
-
-                if isinstance(val, list):
-                    val_str = "(" + ", ".join([duckdb_safe_val(v) for v in val]) + ")"
+                if not country_selected_bool:
+                    state_province_options = ['Select specific Regions/Countries to Enable']
+                    selected_state_province = st.multiselect(
+                        "State / Province",
+                        state_province_options,
+                        disabled=True,
+                        key="state_province_selector_RO",
+                        on_change=mark_ac_recompute
+                    )
                 else:
-                    val_str = f"({duckdb_safe_val(val)})"
+                    state_province_options = sorted(
+                        row[0] for row in con.execute(
+                            f"SELECT DISTINCT gadm_1_corrected_name FROM '{gadm_1_path}' "
+                            f"WHERE ({region_filter_clause}) AND gadm_1_name IS NOT NULL"
+                        ).fetchall()
+                    )
+
+                    selected_state_province = st.multiselect(
+                        "State / Province",
+                        state_province_options,
+                        disabled=False,
+                        key="state_province_selector_RO",
+                        on_change=mark_ac_recompute
+                    )
+
+                if (not country_selected_bool) or (not selected_state_province):
+                    county_district_options = ['Select a Region/Country to Enable']
+                    selected_county_district = st.multiselect(
+                        "County / District",
+                        county_district_options,
+                        disabled=True,
+                        key="county_district_selector_RO",
+                        on_change=mark_ac_recompute
+                    )
+                else:
+
+                    sanitized_vals = [str(v).replace("'", "''") for v in selected_state_province]
+                    val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_vals) + ")"
+
+                    query = (
+                        f"SELECT DISTINCT gadm_2_corrected_name FROM '{gadm_2_path}' "
+                        f"WHERE gadm_1_corrected_name IN {val_str} AND gadm_2_name IS NOT NULL"
+                    )
+
+                    county_district_options = sorted(
+                        row[0] for row in con.execute(query).fetchall()
+                    )
+
+                    selected_county_district = st.multiselect(
+                        "County / District",
+                        county_district_options,
+                        disabled=False,
+                        key="county_district_selector_RO",
+                        on_change=mark_ac_recompute
+                    )
+
+            else:
+                if not country_selected_bool:
+                    city_options = ['Select a County/District to Enable']
+                    selected_city = st.multiselect(
+                        "City",
+                        city_options,
+                        disabled=True,
+                        key="city_selector_RO",
+                        on_change=mark_ac_recompute
+                    )
+                else:
+                    def duckdb_safe_val(v):
+                        if isinstance(v, bool):
+                            return "TRUE" if v else "FALSE"
+                        return f"'{str(v).replace("'", "''")}'"
 
 
-                query = f"""
-                    SELECT DISTINCT city_name 
-                    FROM '{city_path}' 
-                    WHERE {col} IN {val_str} AND city_name IS NOT NULL
-                """
+                    if isinstance(val, list):
+                        val_str = "(" + ", ".join([duckdb_safe_val(v) for v in val]) + ")"
+                    else:
+                        val_str = f"({duckdb_safe_val(val)})"
 
 
-                city_options = sorted(
-                    row[0] for row in con.execute(query).fetchall()
-                )
+                    query = f"""
+                        SELECT DISTINCT city_name 
+                        FROM '{city_path}' 
+                        WHERE {col} IN {val_str} AND city_name IS NOT NULL
+                    """
 
 
-                selected_city = st.multiselect(
-                    "City",
-                    city_options,
-                    disabled=False,
-                    key="city_selector_RO",
-                    on_change=mark_ac_recompute
-                )
+                    city_options = sorted(
+                        row[0] for row in con.execute(query).fetchall()
+                    )
 
-    # create SQL filters based on geography selection
-    asset_geography_filters = []
-    total_geography_filters = []
-    total_path = gadm_0_path
 
-    if region_conditions and country_selected_bool:
-        asset_geography_filters.append(f"({region_filter_clause})")
-        total_geography_filters = [(f"({region_filter_clause})")]
+                    selected_city = st.multiselect(
+                        "City",
+                        city_options,
+                        disabled=False,
+                        key="city_selector_RO",
+                        on_change=mark_ac_recompute
+                    )
+
+        # create SQL filters based on geography selection
+        asset_geography_filters = []
+        total_geography_filters = []
         total_path = gadm_0_path
-        if (selection_mode == "State/Province + County"):
 
-            if selected_state_province:
-                sanitized_states = [str(v).replace("'", "''") for v in selected_state_province]
-                val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_states) + ")"
-                asset_geography_filters.append(f"gadm_1_name IN {val_str}")
-                total_geography_filters = [f"gadm_1_corrected_name IN {val_str}"]
-                total_path = gadm_1_path
-            if selected_county_district:
-                sanitized_counties = [str(v).replace("'", "''") for v in selected_county_district]
-                val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_counties) + ")"
-                asset_geography_filters.append(f"gadm_2_name IN {val_str}")
-                total_geography_filters = [f"gadm_2_corrected_name IN {val_str}"]
-                total_path = gadm_2_path
-        else:
+        if region_conditions and country_selected_bool:
+            asset_geography_filters.append(f"({region_filter_clause})")
+            total_geography_filters = [(f"({region_filter_clause})")]
+            total_path = gadm_0_path
+            if (selection_mode == "State/Province + County"):
 
-            if selected_city:
-                sanitized_city = [str(v).replace("'", "''") for v in selected_city]
-                val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_city) + ")"
-                asset_geography_filters.append(f"city_name IN {val_str}")
-                total_geography_filters = [f"city_name IN {val_str}"]
-                total_path = city_path
+                if selected_state_province:
+                    sanitized_states = [str(v).replace("'", "''") for v in selected_state_province]
+                    val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_states) + ")"
+                    asset_geography_filters.append("most_granular IS NOT False")
+                    asset_geography_filters.append(f"gadm_1_name IN {val_str}")
+                    total_geography_filters = [f"gadm_1_corrected_name IN {val_str}"]
+                    total_path = gadm_1_path
+                if selected_county_district:
+                    sanitized_counties = [str(v).replace("'", "''") for v in selected_county_district]
+                    val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_counties) + ")"
+                    asset_geography_filters.append("most_granular IS NOT False")
+                    asset_geography_filters.append(f"gadm_2_name IN {val_str}")
+                    total_geography_filters = [f"gadm_2_corrected_name IN {val_str}"]
+                    total_path = gadm_2_path
+            else:
 
-    total_geography_filters_clause = " AND ".join(total_geography_filters) if total_geography_filters else "1=1"
-    asset_geography_filters_clause = " AND ".join(asset_geography_filters) if asset_geography_filters else "1=1"
-    asset_geography_filters_clause = asset_geography_filters_clause.replace("iso3_country", "ae.iso3_country")
+                if selected_city:
+                    sanitized_city = [str(v).replace("'", "''") for v in selected_city]
+                    val_str = "(" + ", ".join(f"'{v}'" for v in sanitized_city) + ")"
+                    asset_geography_filters.append(f"city_name IN {val_str}")
+                    total_geography_filters = [f"city_name IN {val_str}"]
+                    total_path = city_path
+
+        total_geography_filters_clause = " AND ".join(total_geography_filters) if total_geography_filters else "1=1"
+        asset_geography_filters_clause = " AND ".join(asset_geography_filters) if asset_geography_filters else "1=1"
+        asset_geography_filters_clause = asset_geography_filters_clause.replace("iso3_country", "ae.iso3_country")
     
+
+    ##### DROPDOWN MENU: SECTOR, SUBSECTOR, PROGRAM -------
+    # add drop-down options for filtering data + program view for x/y axis
+
+    all_sectors = list(abatement_subsector_options.keys())
+
+    with sector_program_col:
+        with st.expander("Sector & Subsector", expanded=True):
+            selected_sector_user = st.multiselect(
+                "Sector",
+                options=all_sectors,
+                default=['manufacturing']
+            )
+            if not selected_sector_user:
+                selected_sector = all_sectors
+            else:
+                selected_sector = selected_sector_user
+
+            subsector_options = [
+                subsector
+                for sector in selected_sector
+                for subsector in abatement_subsector_options[sector]
+            ]
+
+            selected_subsector_user = st.multiselect(
+                "Subsector",
+                options=subsector_options,
+                default=subsector_options[0]
+            )
+            if not selected_subsector_user:
+                selected_subsector = subsector_options
+            else:
+                selected_subsector = selected_subsector_user
+
+        selected_year = 2024
+
+        if len(selected_subsector) > 1:
+            multisector = True
+        else:
+            multisector = False
+
+        with st.expander("Program View", expanded=True):
+            program_options = ["Emissions Reduction Solutions"]
+            program_help = ("**Emissions Reduction Solutions**: Emissions reduction potential ranked by difficulty score (ascending). Available for multisector selections.\n\n"
+                            "**Emissions Factor Abatement Curve**: Activity ranked by emissions factor (descending). Only available for single sector selection.")
+
+            if not multisector:
+                program_options.append("Emissions Factor Abatement Curve")
+            selected_program = st.radio(
+                "Select your view",
+                program_options,
+                horizontal=True,
+                help=program_help,
+                key="selection_program_RO",
+                on_change=mark_ac_recompute
+                )
+
+    if selected_program == "Emissions Reduction Solutions":
+        selected_x = 'net_reduction_potential'
+        selected_y = 'asset_difficulty_score'
+    else:
+        selected_x = 'activity'
+        selected_y = 'emissions_factor'
+
+
     ##### QUERY DATA -------
 
     # query assets based on selection
@@ -332,7 +363,7 @@ def show_abatement_curve():
 
         summary_text = (
             f"<b>Total Emissions:</b> {format_emissions(total_emissions)}<br>"
-            f"<b>Total Net Reduction Potential:</b> {format_emissions(total_reductions)} ({round((total_reductions/total_emissions) * 100, 1)}%)")
+            f"<b>Total Emissions Reduction Potential:</b> {format_emissions(total_reductions)} ({round((total_reductions/total_emissions) * 100, 1)}%)")
 
         # display text
         st.markdown(
@@ -345,10 +376,11 @@ def show_abatement_curve():
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown(
-            """
+            f"""
             <div style="text-align:center; font-size:36px; font-weight:600; margin-top:10px;">
-                Emissions Reduction Pathways: Asset Opportunities
+                {selected_program}
             </div>
+            <div style="text-align:center; font-size: 25px"><i>Overview of Assets</i></div>
             """,
             unsafe_allow_html=True
         )
@@ -359,43 +391,47 @@ def show_abatement_curve():
         # set up selections
 
         #x_axis_col, y_axis_col, group_col, color_col, threshold_col = st.columns(5)
-        group_col, x_axis_col, y_axis_col, color_col = st.columns(4)
+        group_col, color_col = st.columns(2)
 
         with group_col:
+            if selected_program == "Emissions Reduction Solutions":
+                group_options = ['asset', 'country', 'strategy_name']
+            else:
+                group_options = ['asset', 'country']
             selected_group = st.selectbox(
                 "Group by",
-                options=['asset', 'country', 'strategy_name'])
+                options=group_options)
 
-        with x_axis_col:
-            if multisector:
-                x_axis_options = ['emissions_quantity', 'net_reduction_potential', 'count']
-            else:
-                x_axis_options = ['activity', 'emissions_quantity', 'net_reduction_potential', 'count']
-            selected_x = st.selectbox(
-                "Set x-axis",
-                options=x_axis_options)
+        # with x_axis_col:
+        #     if multisector:
+        #         x_axis_options = ['emissions_quantity', 'net_reduction_potential', 'count']
+        #     else:
+        #         x_axis_options = ['activity', 'emissions_quantity', 'net_reduction_potential', 'count']
+        #     selected_x = st.selectbox(
+        #         "Set x-axis",
+        #         options=x_axis_options)
             
-        with y_axis_col:
-            if selected_x in ['count', 'activity']:
-                if selected_group != 'strategy_name':
-                    y_axis_options = ['emissions_factor', 'asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
-                else:
-                    y_axis_options = ['asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
-            else:
-                if selected_group != 'strategy_name':
-                    y_axis_options = ['emissions_factor', 'asset_difficulty_score']
-                else:
-                    y_axis_options = ['asset_difficulty_score']
-            selected_y = st.selectbox(
-                "Set y-axis",
-                options=y_axis_options
-            )
+        # with y_axis_col:
+        #     if selected_x in ['count', 'activity']:
+        #         if selected_group != 'strategy_name':
+        #             y_axis_options = ['emissions_factor', 'asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
+        #         else:
+        #             y_axis_options = ['asset_difficulty_score', 'emissions_quantity', 'net_reduction_potential']
+        #     else:
+        #         if selected_group != 'strategy_name':
+        #             y_axis_options = ['emissions_factor', 'asset_difficulty_score']
+        #         else:
+        #             y_axis_options = ['asset_difficulty_score']
+        #     selected_y = st.selectbox(
+        #         "Set y-axis",
+        #         options=y_axis_options
+        #     )
 
         with color_col:
-            if selected_group in ['asset', 'country']:
+            if selected_program == "Emissions Reduction Solutions":
                 color_options = ['sector', 'continent', 'unfccc_annex']
             else:
-                color_options = ['sector']
+                color_options = ['unfccc_annex', 'sector', 'continent']
             selected_color = st.selectbox(
                 "Color by",
                 options=color_options)
@@ -546,7 +582,7 @@ def show_abatement_curve():
                 "strategy_description": st.column_config.Column(width="large"),
                 "assets_impacted": st.column_config.NumberColumn(format="localized"),
                 "emissions_quantity": st.column_config.NumberColumn(format="localized"),
-                "total_net_reduction_potential": st.column_config.NumberColumn(format="localized")})
+                "total_reduction_potential": st.column_config.NumberColumn(format="localized")})
         print(f"✅ ERS table loaded ({len(ers_table):,} rows)", flush=True)
 
         # create a table with all assets + ERS info
@@ -563,7 +599,7 @@ def show_abatement_curve():
         print("✅ URL columns created", flush=True)
 
         # filter + format table
-        df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'net_reduction_potential (t CO2e)']]
+        df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduction_potential (t CO2e)']]
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### Top 200 Reduction Opportunities")
@@ -594,7 +630,7 @@ def show_abatement_curve():
                 "gadm_1_url": st.column_config.LinkColumn("state / province", display_text=r'admin=(.+?)--'),
                 "gadm_2_url": st.column_config.LinkColumn("county / municipality / district", display_text=r'admin=(.+?)--'),
                 "emissions_quantity (t CO2e)": st.column_config.NumberColumn(format="localized"),
-                "net_reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
+                "reduction_potential (t CO2e)": st.column_config.NumberColumn(format="localized")}
         )
         print("✅ Final table rendered", flush=True)
 
