@@ -38,6 +38,8 @@ Each of these 3 folders should be visbile within the `.gitignore`, and none of t
 
 ## 2.&nbsp;&nbsp; 🏃&nbsp; Running the Pipeline
 
+🚨🚨 **NOTE:** **_This step should only be started when Data Fusion has completed the Monthly Statistics process, AND they indicate that the reductions tables are ready. Running this process before both are complete will result in outdated/incorrect data._** 🚨🚨
+
 ### 2.1&nbsp;&nbsp;&nbsp;Create a Branch off `stage`
 ```
 git checkout stage
@@ -86,4 +88,5 @@ Example branch name: `data-update-V5.2.0`
 
 ### 2.7&nbsp;&nbsp;&nbsp;For deployment into prod/main via Fly.io, see the Deployment Instructions and start at the [Data Only Merge section](https://github.com/anthony-L-russo/emissions-reduction-pathways-dashboard/tree/stage?tab=readme-ov-file#2%EF%B8%8F%E2%83%A3-data-only-merge-monthly-data-releases)
       
+
 
