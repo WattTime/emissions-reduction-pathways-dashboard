@@ -1,4 +1,4 @@
-# 🚀 Sandbox Data Pipeline — Setup & Run Guide
+# 🚀 Data Pipeline — Setup & Run Guide
 
 This document explains how to set up the local environment, prepare required folders, run the data pipeline, and push updated data into the staging environment.
 
@@ -86,3 +86,4 @@ Example branch name: `data-update-V5.2.0`
 
 ### 2.7&nbsp;&nbsp;&nbsp;For deployment into prod/main via Fly.io, see the Deployment Instructions and start at the [Data Only Merge section](https://github.com/anthony-L-russo/emissions-reduction-pathways-dashboard/tree/stage?tab=readme-ov-file#2%EF%B8%8F%E2%83%A3-data-only-merge-monthly-data-releases)
       
+
