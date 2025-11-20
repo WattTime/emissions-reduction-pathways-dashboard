@@ -860,7 +860,6 @@ def summarize_reductions_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2
                 FROM '{city_path}') city ON regexp_replace(ae.ghs_fua[1], '[{{}}]', '', 'g') = city.city_id
             WHERE subsector IN ({formatted_subsectors})
             AND year = {selected_year}
-            AND reduction_q_type = 'asset'
             AND {geography_filters_clause}
             GROUP BY ae.iso3_country, ae.balancing_authority_region, ae.asset_id, ae.strategy_name, ae.total_emissions_reduced_per_year
         )
@@ -957,10 +956,10 @@ def summarize_ers_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, 
             mechanism,
             COUNT(distinct asset_id) AS assets_impacted,
             ROUND(SUM(total_emissions_quantity), 0) AS emissions_quantity,
-            ROUND(SUM(total_emissions_reduced_per_year), 0) AS total_net_reduction_potential
+            ROUND(SUM(total_emissions_reduced_per_year), 0) AS total_reduction_potential
         FROM asset_level
         GROUP BY subsector, strategy_name, strategy_description, mechanism
-        ORDER BY total_net_reduction_potential DESC
+        ORDER BY total_reduction_potential DESC
     '''
 
     return query_ers_sql
@@ -992,7 +991,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             ROUND(SUM(ae.emissions_quantity), 0) AS "emissions_quantity (t CO2e)",
             SUM(ae.emissions_quantity) / NULLIF(SUM(ae.activity), 0) AS emissions_factor,
             ROUND(ae.emissions_reduced_at_asset) AS "asset_reduction_potential (t CO2e)",
-            ROUND(ae.total_emissions_reduced_per_year) AS "net_reduction_potential (t CO2e)",
+            ROUND(ae.total_emissions_reduced_per_year) AS "reduction_potential (t CO2e)",
             ae.asset_difficulty_score
         FROM '{annual_asset_path}' ae
         LEFT JOIN (

@@ -63,7 +63,7 @@ Use this when only updating files in the `/data/` directory and no code changes 
    - `git checkout -b data-update-<VX.X>`
       - Example Branch: `data-update-V5.1`
 
-2. Run data pipeline, then commit/push:
+2. [Run data pipeline](https://github.com/WattTime/emissions-reduction-pathways-dashboard/tree/stage/data#readme), then commit/push:
    - `git add data/`
    - `git commit -m "Data update: <description>"`
    - `git push origin data-update-<VX.X>`

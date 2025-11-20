@@ -462,12 +462,12 @@ abatement_subsector_options = {
         'other-solid-fuels'
     ],
     'manufacturing': [
+        'iron-and-steel',
         'aluminum',
         'cement',
         'chemicals',
         'food-beverage-tobacco',
         'glass',
-        'iron-and-steel',
         'lime',
         'other-chemicals',
         'other-manufacturing',
@@ -680,20 +680,20 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     elif selected_x == 'emissions_quantity':
         x_axis_title = 'Total Emissions (t of CO2e)'
     elif selected_x == 'net_reduction_potential':
-        x_axis_title = 'Net Emissions Reduction Potential (t of CO2e)'
+        x_axis_title = 'Emissions Reduction Potential (t of CO2e)'
     elif selected_x == 'activity':
         x_axis_title = f'Activity ({df['activity_units'].iloc[-1]})'
 
     # change values based on y-axis
     if selected_y == 'emissions_quantity':
         y_axis_title = 'Total Emissions (t of CO2e)'
-        ascending_order = True
+        ascending_order = False
     elif selected_y == 'net_reduction_potential':
-        y_axis_title = 'Net Emissions Reduction Potential (t of CO2e)'
-        ascending_order = True
+        y_axis_title = 'Emissions Reduction Potential (t of CO2e)'
+        ascending_order = False
     elif selected_y == 'emissions_factor':
         y_axis_title = 'Emissions Factor (t of CO2e / Activity)'
-        ascending_order = True
+        ascending_order = False
     elif selected_y == 'asset_difficulty_score':
         y_axis_title = 'Difficulty Score (1-10)'
         ascending_order = True
@@ -1006,11 +1006,11 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
 
     # create csv to download the data
     if selected_group == 'asset':
-        df_csv = df.iloc[1:-1][['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_color, selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
+        df_csv = df.iloc[1:-1][['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_color, 'subsector', selected_x, selected_y]].sort_values(selected_y).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
     if selected_group == 'country':
-        df_csv = df.iloc[1:-1][['iso3_country', 'country_name', selected_color, selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
+        df_csv = df.iloc[1:-1][['iso3_country', 'country_name', selected_color, 'subsector', selected_x, selected_y]].sort_values(selected_y).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
     if selected_group == 'strategy_name':
-        df_csv = df.iloc[1:-1][['sector', 'subsector', 'strategy_name', selected_x, selected_y]].sort_values(selected_y).to_csv(index=False).encode('utf-8')
+        df_csv = df.iloc[1:-1][['sector', 'subsector', 'strategy_name', selected_x, selected_y]].sort_values(selected_y).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
     return fig, df_csv
 
 def make_asset_url(row):
