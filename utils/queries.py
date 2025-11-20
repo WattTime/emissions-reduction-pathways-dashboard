@@ -1171,11 +1171,13 @@ def create_heatmap_sql(country_selected_bool,
                 , a.gadm_2
                 , a.sector
                 , a.total_emissions_reduced_per_year
+                , a.most_granular
             
             from '{annual_asset_path}' a
             {sector_total_join}
         ) a
 
+        where most_granular is true
         
     '''
 
@@ -1205,6 +1207,8 @@ def create_heatmap_sql(country_selected_bool,
                 , total_emissions_reduced_per_year
             
             from '{annual_asset_path}'
+
+            where most_granular is true
         ) a
 
         {table_join}
