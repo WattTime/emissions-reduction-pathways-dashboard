@@ -82,7 +82,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 
-# ---- 3-column layout ----
+# ---- 2-column layout ----
 col1, col2 = st.columns(2)
 
 

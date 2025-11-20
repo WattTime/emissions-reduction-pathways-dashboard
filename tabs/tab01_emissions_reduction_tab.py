@@ -83,46 +83,25 @@ def show_emissions_reduction_plan():
 
     reduction_method = "Climate TRACE Solutions"
 
-    with year_col:
-        st.text_input(
-            label="", 
-            value=" Data Year:  2024", 
-            disabled=True, 
-            key="static_year_RO",
-            on_change=mark_ro_recompute
-        )
+    # with year_col:
+    #     st.text_input(
+    #         label="", 
+    #         value=" Data Year:  2024", 
+    #         disabled=True, 
+    #         key="static_year_RO",
+    #         on_change=mark_ro_recompute
+    #     )
 
-    with download_col:
-        st.markdown(
-            """
-            <style>
-            .stDownloadButton button {
-                white-space: nowrap;
-                margin-left: -8px;
-            }
-            .custom-download-space {
-                padding-top: 28px;
-            }
-            </style>
-            <div class="custom-download-space"></div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        download_placeholder = st.empty()
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    # st.markdown("<br>", unsafe_allow_html=True)
 
     if reduction_method == "Climate TRACE Solutions":
         use_ct_ers = True
     else:
         use_ct_ers = False
 
-    
-
     # --------- DROPDOWN ROW 1 ----------
 
-    country_dropdown, state_province_dropdown, county_district_dropdown, city_dropdown, forestry_toggle  = st.columns([1.75,1.75,1.75,1.75,1])
+    country_dropdown, state_province_dropdown, county_district_dropdown, city_dropdown, forestry_toggle, download_col  = st.columns([2,2.3,2.3,2.3,1.75,1])
 
     with country_dropdown:
         
@@ -276,6 +255,25 @@ def show_emissions_reduction_plan():
             exclude_forestry = True
         else:
             exclude_forestry = False
+
+    with download_col:
+        st.markdown(
+            """
+            <style>
+            .stDownloadButton button {
+                white-space: nowrap;
+                margin-left: -8px;
+            }
+            .custom-download-space {
+                padding-top: 28px;
+            }
+            </style>
+            <div class="custom-download-space"></div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        download_placeholder = st.empty()
 
 
 
