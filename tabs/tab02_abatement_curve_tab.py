@@ -253,7 +253,8 @@ def show_abatement_curve():
         total_geography_filters_clause = " AND ".join(total_geography_filters) if total_geography_filters else "1=1"
         asset_geography_filters_clause = " AND ".join(asset_geography_filters) if asset_geography_filters else "1=1"
         asset_geography_filters_clause = asset_geography_filters_clause.replace("iso3_country", "ae.iso3_country")
-    
+        print(total_geography_filters_clause)
+        print(asset_geography_filters_clause)
 
     ##### DROPDOWN MENU: SECTOR, SUBSECTOR, PROGRAM -------
     # add drop-down options for filtering data + program view for x/y axis
@@ -543,26 +544,28 @@ def show_abatement_curve():
         fig, df_csv = plot_abatement_curve(df_assets, selected_group, selected_color, dict_color, dict_lines, selected_list, selected_assets, selected_x, selected_y, selected_threshold, fill=True)
         print("✅ Plot generated", flush=True)
 
-        st.markdown(
-            f"""
-            <div style="text-align:left; font-size:24px; margin-top:10px;">
-                {chart_title}
-            </div>
-            """,
-            unsafe_allow_html=True)
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        empty_col, download_col = st.columns([5, 1])  
-        with empty_col:
-            st.write("") 
+        title_col, download_col = st.columns([6, 1])
+        with title_col:
+            st.markdown(
+                f"""
+                <div style="text-align:left; font-size:24px; margin-top:10px;">
+                    {chart_title}
+                </div>
+                """,
+                unsafe_allow_html=True)
+            
         with download_col:
+            st.markdown("<div style='text-align: right; margin-top:10px;'>", unsafe_allow_html=True)
             st.download_button(
                 label="Download plot data",
                 data=df_csv,
-                file_name="abatement_data.csv",
+                file_name="fig_plot_data.csv",
                 mime="text/csv"
             )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.plotly_chart(fig, use_container_width=True)
+
         print("✅ Rendered abatement curve chart", flush=True)
 
         ##### EMISSIONS REDUCING SOLUTIONS -------
@@ -573,6 +576,14 @@ def show_abatement_curve():
         # create a table to summarize ers for sector
         query_ers = summarize_ers_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, asset_geography_filters_clause)
         ers_table = con.execute(query_ers).df()
+        csv_ers = ers_table.to_csv(index=False).encode('utf-8')
+
+        st.download_button(
+            label="Download CSV",
+            data=csv_ers,
+            file_name="ers_summary_data.csv",
+            mime="text/csv",
+        )
 
         st.dataframe(
             ers_table,
@@ -599,8 +610,8 @@ def show_abatement_curve():
         print("✅ URL columns created", flush=True)
 
         # filter + format table
+        csv_assets = df_table[['subsector', 'asset_name', 'asset_url', 'country_name', 'country_url', 'gadm_1_name', 'gadm_1_url', 'gadm_2_name', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduction_potential (t CO2e)']].to_csv(index=False).encode('utf-8')
         df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduction_potential (t CO2e)']]
-
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### Top 200 Reduction Opportunities")
 
@@ -618,7 +629,14 @@ def show_abatement_curve():
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
-        
+
+        st.download_button(
+            label="Download CSV",
+            data=csv_assets,
+            file_name="asset_table_data.csv",
+            mime="text/csv",
+        )
+
         # display table
         st.dataframe(
             df_table,
