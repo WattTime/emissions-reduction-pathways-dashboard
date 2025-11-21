@@ -62,7 +62,7 @@ st.markdown(
             <h1 style="margin: 0; font-size: 2.8em;">Climate TRACE Heat Map (Beta)</h1>
         </div>
         <p style="margin-top: 2px; font-size: 1em; font-style: italic;">
-            The data in this dashboard is from Climate TRACE release <span style='color: red;'><strong>{get_release_version(con, asset_path)}</strong></span> (excluding forestry), covering 660 million assets globally.
+            The data in this dashboard is from Climate TRACE release <span style='color: red;'><strong>{get_release_version(con, asset_path)}</strong></span> (excluding forestry), covering 740 million assets globally.
         </p>
         <p style="margin-top: 2px; font-size: 1em; font-style: italic;">
             This web application is for the internal use of Climate TRACE and its partners only. The data displayed may be revised, updated, rearranged, or deleted without prior communication to users, and is not warranted to be error free.

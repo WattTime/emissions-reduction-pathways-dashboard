@@ -11,3 +11,4 @@ asset_annual_emissions.parquet
 
 data/zzz_archive/
 data/zzz_landing_zone/
+data/raw_csvs/

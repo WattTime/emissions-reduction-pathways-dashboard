@@ -83,46 +83,25 @@ def show_emissions_reduction_plan():
 
     reduction_method = "Climate TRACE Solutions"
 
-    with year_col:
-        st.text_input(
-            label="", 
-            value=" Data Year:  2024", 
-            disabled=True, 
-            key="static_year_RO",
-            on_change=mark_ro_recompute
-        )
+    # with year_col:
+    #     st.text_input(
+    #         label="", 
+    #         value=" Data Year:  2024", 
+    #         disabled=True, 
+    #         key="static_year_RO",
+    #         on_change=mark_ro_recompute
+    #     )
 
-    with download_col:
-        st.markdown(
-            """
-            <style>
-            .stDownloadButton button {
-                white-space: nowrap;
-                margin-left: -8px;
-            }
-            .custom-download-space {
-                padding-top: 28px;
-            }
-            </style>
-            <div class="custom-download-space"></div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        download_placeholder = st.empty()
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    # st.markdown("<br>", unsafe_allow_html=True)
 
     if reduction_method == "Climate TRACE Solutions":
         use_ct_ers = True
     else:
         use_ct_ers = False
 
-    
-
     # --------- DROPDOWN ROW 1 ----------
 
-    country_dropdown, state_province_dropdown, county_district_dropdown, city_dropdown, forestry_toggle  = st.columns([1.75,1.75,1.75,1.75,1])
+    country_dropdown, state_province_dropdown, county_district_dropdown, city_dropdown, forestry_toggle, download_col  = st.columns([2,2.3,2.3,2.3,1.75,1])
 
     with country_dropdown:
         
@@ -276,6 +255,25 @@ def show_emissions_reduction_plan():
             exclude_forestry = True
         else:
             exclude_forestry = False
+
+    with download_col:
+        st.markdown(
+            """
+            <style>
+            .stDownloadButton button {
+                white-space: nowrap;
+                margin-left: -8px;
+            }
+            .custom-download-space {
+                padding-top: 28px;
+            }
+            </style>
+            <div class="custom-download-space"></div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        download_placeholder = st.empty()
 
 
 
@@ -470,7 +468,7 @@ def show_emissions_reduction_plan():
     
 
     query_country = build_country_sql(table, where_sql)
-    print(query_country)
+    # print(query_country)
 
     df_pie = con.execute(query_country).df()
     
@@ -589,6 +587,7 @@ def show_emissions_reduction_plan():
             ) c
                 on c.city_id = regexp_replace(ae.ghs_fua[1], '[{{}}]', '', 'g')
         """
+    
     elif selected_county_district and not selected_county_district.startswith("--") and country_selected_bool:
         dropdown_join = f"""
             inner join (
@@ -600,6 +599,11 @@ def show_emissions_reduction_plan():
             ) g2
                 on g2.gadm_2_id = ae.gadm_2
         """
+        if reduction_where_sql:
+            reduction_where_sql += " AND most_granular is true "
+        else:
+            reduction_where_sql = "WHERE most_granular is true "
+
     elif selected_state_province and not selected_state_province.startswith("--") and country_selected_bool:
         dropdown_join = f"""
             inner join (
@@ -611,6 +615,18 @@ def show_emissions_reduction_plan():
             ) g1
                 on g1.gadm_id = ae.gadm_1
         """
+
+        if reduction_where_sql:
+            reduction_where_sql += " AND most_granular is true "
+        else:
+            reduction_where_sql = "WHERE most_granular is true "
+
+    else:
+        if reduction_where_sql:
+            reduction_where_sql += " AND most_granular is true "
+        else:
+            reduction_where_sql = "WHERE most_granular is true "
+
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### Sector Reduction Opportunities (Annual)")
 
@@ -948,9 +964,9 @@ def show_emissions_reduction_plan():
 
     # Join reductions with proper punctuation
     sentence_3_formatted_reductions = [
-    f"<span style='color: green;'><strong>{format_number_short(val)}</strong></span>"
-    for val in high_reduction_low_emitter_df["emissions_reduction_potential"]
-]
+        f"<span style='color: green;'><strong>{format_number_short(val)}</strong></span>"
+        for val in high_reduction_low_emitter_df["emissions_reduction_potential"]
+    ]
 
     if not sentence_3_formatted_reductions:
         sentence_3_text = ""
@@ -1162,7 +1178,7 @@ def show_emissions_reduction_plan():
                                     exclude_forestry=exclude_forestry
                                 )
         
-        print(subsector_download_sql)
+        # print(subsector_download_sql)
 
         subsector_reduction_download_df = con.execute(subsector_download_sql).df()
 
@@ -1195,4 +1211,4 @@ def show_emissions_reduction_plan():
 
     con.close()
 
-    
+    # print(reduction_where_sql)
