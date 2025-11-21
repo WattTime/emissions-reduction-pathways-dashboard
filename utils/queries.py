@@ -712,6 +712,7 @@ def find_sector_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_p
             AND ae.year = {selected_year}
             AND ae.reduction_q_type = 'asset'
             AND {geography_filters_clause}
+            AND ae.total_emissions_reduced_per_year IS NOT NULL
         GROUP BY
             ae.year,
             ae.asset_id,
@@ -798,6 +799,7 @@ def summarize_totals_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_pat
             AND year = {selected_year}
             AND reduction_q_type = 'asset'
             AND {geography_filters_clause}
+            AND ae.total_emissions_reduced_per_year IS NOT NULL
             GROUP BY ae.iso3_country, ae.balancing_authority_region, ae.asset_id, ae.subsector, ae.strategy_name, ae.total_emissions_reduced_per_year
         )
         SELECT
@@ -861,6 +863,7 @@ def summarize_reductions_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2
             WHERE subsector IN ({formatted_subsectors})
             AND year = {selected_year}
             AND {geography_filters_clause}
+            AND ae.total_emissions_reduced_per_year IS NOT NULL
             GROUP BY ae.iso3_country, ae.balancing_authority_region, ae.asset_id, ae.strategy_name, ae.total_emissions_reduced_per_year
         )
         SELECT
@@ -948,6 +951,7 @@ def summarize_ers_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, 
             AND year = {selected_year}
             AND reduction_q_type = 'asset'
             AND {geography_filters_clause}
+            AND ae.total_emissions_reduced_per_year IS NOT NULL
             GROUP BY asset_id, subsector, strategy_name, strategy_description, mechanism
         )
         SELECT subsector,
@@ -1025,6 +1029,7 @@ def create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_
             AND year = {selected_year}
             AND reduction_q_type = 'asset'
             AND {geography_filters_clause}
+            AND ae.total_emissions_reduced_per_year IS NOT NULL
         GROUP BY
             ae.subsector,
             ae.year,
