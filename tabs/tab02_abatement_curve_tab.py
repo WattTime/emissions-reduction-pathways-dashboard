@@ -266,7 +266,7 @@ def show_abatement_curve():
             selected_sector_user = st.multiselect(
                 "Sector",
                 options=all_sectors,
-                default=['manufacturing']
+                default=['manufacturing'],
             )
             if not selected_sector_user:
                 selected_sector = all_sectors
@@ -282,7 +282,8 @@ def show_abatement_curve():
             selected_subsector_user = st.multiselect(
                 "Subsector",
                 options=subsector_options,
-                default=subsector_options[0]
+                default=subsector_options[0],
+                on_change=mark_ac_recompute
             )
             if not selected_subsector_user:
                 selected_subsector = subsector_options
@@ -401,7 +402,8 @@ def show_abatement_curve():
                 group_options = ['asset', 'country']
             selected_group = st.selectbox(
                 "Group by",
-                options=group_options)
+                options=group_options,
+                on_change=mark_ac_recompute)
 
         # with x_axis_col:
         #     if multisector:
@@ -430,7 +432,10 @@ def show_abatement_curve():
 
         with color_col:
             if selected_program == "Emissions Reduction Solutions":
-                color_options = ['sector', 'continent', 'unfccc_annex']
+                if selected_group == 'strategy_name':
+                    color_options = ['sector']
+                else:
+                    color_options = ['sector', 'continent', 'unfccc_annex']
             else:
                 color_options = ['unfccc_annex', 'sector', 'continent']
             selected_color = st.selectbox(
@@ -466,10 +471,8 @@ def show_abatement_curve():
         if "selected_assets" not in st.session_state:
             st.session_state.selected_assets = []
 
-        # Build your asset options
         asset_options = df_assets[selected_list].unique()
 
-        # Use session_state to store and recall user-selected assets
         selected_assets = st.multiselect(
             highlight_text + " to highlight in curve",
             options=asset_options,
@@ -600,6 +603,16 @@ def show_abatement_curve():
         query_table = create_table_assets_sql(annual_asset_path, gadm_0_path, gadm_1_path, gadm_2_path, city_path, selected_subsector, selected_year, asset_geography_filters_clause)
         df_table = con.execute(query_table).df()
 
+        if selected_program == 'Emissions Reduction Solutions':
+            df_table = df_table.sort_values("asset_difficulty_score", ascending=True).reset_index()
+            summary_text = (
+            "Opportunities are ranked based on <b>difficulty score</b>. The difficulty score reflects the potential impact, effort, and capital cost required to implement "
+            "an emissions reduction solution. Higher-ranked opportunities indicate easier, more practial solutions.")
+        else:
+            df_table = df_table.sort_values("emissions_factor", ascending=False).reset_index()
+            summary_text = (
+            "Opportunities are ranked based on <b>emissions factor</b>. Emissions factors are based on emissions per unit of activity. A higher emissions factor indicates higher-priority opportunities.")
+
         # create urls to link info to climate trace website
         df_table['asset_url'] = df_table.apply(make_asset_url, axis=1)
         df_table['country_url'] = df_table.apply(make_country_url, axis=1)
@@ -614,10 +627,6 @@ def show_abatement_curve():
         df_table = df_table[['subsector', 'asset_url', 'country_url', 'gadm_1_url', 'gadm_2_url', 'strategy_name', 'emissions_quantity (t CO2e)', 'emissions_factor', 'reduction_potential (t CO2e)']]
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### Top 200 Reduction Opportunities")
-
-        summary_text = (
-            "Opportunities are ranked based on <b>difficulty score</b>. The difficulty score reflects the potential impact, effort, and capital cost required to implement "
-            "an emissions reduction solution. Higher-ranked opportunities indicate easier, more practial solutions.")
         
         st.markdown(
             f"""
