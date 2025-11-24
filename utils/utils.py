@@ -713,7 +713,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
         
     if selected_group == 'strategy_name':
         df = df.groupby(
-            [selected_list, selected_color, 'subsector', 'strategy_name', 'color']).agg(
+            [selected_list, 'sector', 'subsector', 'strategy_name', 'color']).agg(
                 activity=('activity', 'sum'),
                 emissions_quantity=('emissions_quantity', 'sum'),
                 net_reduction_potential=('net_reduction_potential', 'sum'),
@@ -741,13 +741,15 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     for col in df.columns:
         if col == selected_color:
             new_row[col] = first_row[selected_color]
+        elif col == selected_list: 
+            new_row[col] = ""
         elif col == 'sector': 
             new_row[col] = first_row['sector'] 
         elif pd.api.types.is_numeric_dtype(df[col]):
             new_row[col] = 0
         else:
             new_row[col] = first_row[col]
-    df = pd.concat([pd.DataFrame([new_row], columns=df.columns), df, pd.DataFrame([new_row], columns=df.columns)], ignore_index=True)
+    df = pd.concat([pd.DataFrame([new_row], columns=df.columns), df], ignore_index=True)
 
     # create a selected_df based on highlighted assets
     selected_df = df[df[selected_list].isin(selected_assets)].copy()
@@ -851,7 +853,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
     y_offset = (y_max) * 0.01
     y_range_quantile = 0.99
     
-    for i in range(len(subset_df) - 1):
+    for i in range(1, len(subset_df)):
         if selected_group == 'asset':
             hover_text = (
                 f"{subset_df['subsector'][i]}<br>"
@@ -883,7 +885,7 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
             )
 
         color_value = subset_df['color'][i] 
-        y_vals = [subset_df[selected_y].iloc[i], subset_df[selected_y].iloc[i+1]]
+        y_vals = [subset_df[selected_y].iloc[i-1], subset_df[selected_y].iloc[i]]
         if all(y <= threshold for y in y_vals):
             fill_col = hex_to_rgba(color_value, 0.9)
         else:
@@ -893,18 +895,18 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
                 fill_col = 'rgba(0,0,0,0)'
         
 
-        if subset_df['sector'].iloc[i] != subset_df['sector'].iloc[i+1]:
-            continue
+        # if subset_df['sector'].iloc[i] != subset_df['sector'].iloc[i-1]:
+        #     continue
 
         fig.add_trace(go.Scatter(
-            x=[subset_df['value_cum'].iloc[i], subset_df['value_cum'].iloc[i+1]],
-            y=[subset_df[selected_y].iloc[i], subset_df[selected_y].iloc[i+1]],
+            x=[subset_df['value_cum'].iloc[i-1], subset_df['value_cum'].iloc[i]],
+            y=[subset_df[selected_y].iloc[i], subset_df[selected_y].iloc[i]],
             fill='tozeroy',
             fillcolor=fill_col,
             line=dict(color=f'{color_value}', width=4),
             mode='lines',
             name=f'{subset_df[hover_name][i]}',
-            line_shape='vh',
+            line_shape='linear',
             legendgroup=f'{color_value}',
             showlegend=False,
             hoverinfo='text',
@@ -1006,11 +1008,11 @@ def plot_abatement_curve(gdf_asset, selected_group, selected_color, dict_color, 
 
     # create csv to download the data
     if selected_group == 'asset':
-        df_csv = df.iloc[1:-1][['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_color, 'subsector', selected_x, selected_y]].sort_values(selected_y).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
+        df_csv = df.iloc[1:][['asset_id', 'asset_name', 'asset_type', 'iso3_country', 'country_name', selected_color, 'subsector', selected_x, selected_y]].sort_values(['subsector', selected_y]).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
     if selected_group == 'country':
-        df_csv = df.iloc[1:-1][['iso3_country', 'country_name', selected_color, 'subsector', selected_x, selected_y]].sort_values(selected_y).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
+        df_csv = df.iloc[1:][['iso3_country', 'country_name', selected_color, 'subsector', selected_x, selected_y]].sort_values(['subsector', selected_y]).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
     if selected_group == 'strategy_name':
-        df_csv = df.iloc[1:-1][['sector', 'subsector', 'strategy_name', selected_x, selected_y]].sort_values(selected_y).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
+        df_csv = df.iloc[1:][['sector', 'subsector', 'strategy_name', selected_x, selected_y]].sort_values(['subsector', selected_y]).rename(columns={'net_reduction_potential': 'reduction_potential'}).to_csv(index=False).encode('utf-8')
     return fig, df_csv
 
 def make_asset_url(row):
@@ -1266,6 +1268,7 @@ def mark_ac_recompute():
     st.session_state.needs_recompute_abatement_curve = True
     if not st.session_state["selected_region_RO"]:
         st.session_state["selected_region_RO"] = ["Global"]
+    st.session_state["selected_assets"] = []
 
 def mark_mt_recompute():
     st.session_state.needs_recompute_monthly_trends = True
