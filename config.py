@@ -17,6 +17,14 @@ CONFIG = {
     "heatmap_global_totals_path": "data/heatmap_global_inventory_view/global_heatmap_emissions_totals.parquet",
     "heatmap_global_country_path": "data/heatmap_global_inventory_view/global_heatmap_emissions_country.parquet",
     "country_region_mapping_path": "data/country_region_mapping/country_region_mapping.parquet",
+    # Static tools (NOT refreshed monthly; extracted once by data/static_tools/extract_from_html.py)
+    "ers_cost_path": "data/ers_cost/ers_cost_data.parquet",
+    "ers_cost_meta_path": "data/ers_cost/ers_cost_meta.json",
+    "electrification_meta_path": "data/electrification/electrification_meta.json",
+    "electrification_summary_path": "data/electrification/electrification_summary.json.gz",
+    "electrification_picks_path": "data/electrification/electrification_picks.parquet",
+    "electrification_assets_path": "data/electrification/electrification_assets.parquet",
+    "electrification_asset_names_path": "data/electrification/electrification_asset_names.parquet",
     "region_options": [
         'Global', 'EU', 'OECD', 'Non-OECD',
         'UNFCCC Annex', 'UNFCCC Non-Annex', 'G20',
