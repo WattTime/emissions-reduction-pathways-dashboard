@@ -67,7 +67,10 @@ streamlit run app.py
 │   ├── 3_Heat_Map.py
 │   ├── 4_Monthly_Trends.py
 │   ├── 5_Ownership.py
-│   └── 6_Global_Trends.py
+│   ├── 6_Global_Trends.py
+│   ├── 7_Country_Trends.py
+│   ├── 8_ERS_Cost_Analysis.py     # static tool (not refreshed monthly)
+│   └── 9_Electrification.py       # static tool (not refreshed monthly)
 ├── tabs/                   # Reusable visualization components
 │   ├── tab01_emissions_reduction_tab.py
 │   ├── tab02_abatement_curve_tab.py
@@ -75,7 +78,10 @@ streamlit run app.py
 │   ├── tab04_asset_ownership.py
 │   ├── tab05_abatement_curve_demo.py
 │   ├── tab06_reduction_heatmap.py
-│   └── tab07_monthly_trends_v2.py  # Backs 6_Global_Trends.py
+│   ├── tab07_monthly_trends_v2.py  # Backs 6_Global_Trends.py
+│   ├── tab08_country_trends.py     # Backs 7_Country_Trends.py
+│   ├── tab09_ers_cost.py           # Backs 8_ERS_Cost_Analysis.py
+│   └── tab10_electrification.py    # Backs 9_Electrification.py
 ├── utils/                  # Helper modules
 │   ├── queries.py         # SQL query builders
 │   ├── run_sql.py         # PostgreSQL connection
@@ -98,6 +104,24 @@ streamlit run app.py
 - **`is_country()` limitation**: `utils.py:is_country()` only has a hardcoded exclusion list (continents, blocs). Subregion names are not in that list so `is_country()` incorrectly returns `True` for them. Check for `is_subregion` from `map_region_condition()` instead when subregion awareness is needed.
 - **DuckDB Caching** (`tab07`): All DuckDB calls go through three module-level `@st.cache_data(ttl=3600)` helpers — `_cached_df(sql)`, `_cached_fetchone(sql)`, `_cached_fetchall(sql)`. The SQL string is the cache key. Use this pattern in any new tab that queries parquet files to avoid re-running queries on every widget interaction.
 - **Streamlit Pages**: Each page in `pages/` corresponds to a different analytical view
+
+## Static Tools (not part of the monthly refresh)
+
+`8_ERS_Cost_Analysis.py` and `9_Electrification.py` are native ports of two standalone HTML analyses. Their data is a
+frozen snapshot, so **do not** regenerate it in `refresh_data.ipynb` and do not join it to the monthly parquet
+(the numbers are scenario-specific and must keep matching their stated data version). On the homepage they use a
+distinct slate-teal card (`.tool-card.static`) with a "Static" badge (monthly tools carry a "Monthly" badge).
+
+- Data: `data/ers_cost/` and `data/electrification/` (paths in `config.py`). Produced by a one-time
+  extraction from the original standalone HTML files. Neither the HTML files nor the extraction script are committed,
+  so the data files here are the source of truth.
+- Electrification parquet uses scaled integers (`red_*_x10`, `tjf/tje_x100`) and a normalized picks/assets split to
+  stay small (~35 MB vs 155 MB in the HTML); `tab10_electrification._asset_sql` converts them back.
+- Electrification has a **Country** filter: the country view is the *global* scenario (each asset's picked strategy and the
+  scenario's order) restricted to that country, re-aggregated from the parquet files (verified against the HTML tool's
+  global and per-country numbers). The 35x35 goal and share-of-total-emissions figures are global-only and are hidden there.
+- To update a static tool: obtain the new HTML export separately, re-extract it into the same parquet/JSON layout
+  (scaled-integer columns and picks/assets split described above), and commit the data files.
 
 ## Data Pipeline
 
