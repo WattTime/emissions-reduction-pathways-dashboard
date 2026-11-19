@@ -154,14 +154,35 @@ def _signed_log_ticks(values):
             ticks.append(-val)
     ticks = sorted(set(ticks))
     return {'tickmode': 'array', 'tickvals': [_signed_log(t) for t in ticks],
-            'ticktext': [f'{t:,}' for t in ticks]}
+            'ticktext': [_usd(t, 0) for t in ticks]}
 
 
 def _cash_format(v):
+    """Plain number (quantities): thousands separators, no decimals unless the value is fractional."""
     if not _finite(v):
         return '—'
-    digits = 4 if v != 0 and round(v, 2) == 0 else 2
+    if float(v).is_integer() or abs(v) >= 1000:
+        return f'{v:,.0f}'
+    digits = 4 if round(v, 2) == 0 and v != 0 else 2
     return f'{v:,.{digits}f}'
+
+
+def _usd(v, d=None):
+    """Dollar amount: $1,234 (no decimals) for large values, 2 decimals only below $100, 4 for tiny values."""
+    if not _finite(v):
+        return '—'
+    if d is None:
+        a = abs(v)
+        d = 0 if a >= 100 or v == 0 else (4 if round(a, 2) == 0 else 2)
+    return f"{'-' if v < 0 else ''}${abs(v):,.{d}f}"
+
+
+def _usd_short(v, d=1):
+    """Dollar amount with K/M/B/T abbreviations."""
+    if not _finite(v):
+        return '—'
+    s_ = _fmt(abs(v), d)
+    return f"{'-' if v < 0 else ''}${s_}"
 
 
 def _cash_summary(v, money=False):
@@ -170,7 +191,7 @@ def _cash_summary(v, money=False):
     m = abs(v)
     scale = 1e9 if money and m >= 1e9 else 1e6 if money and m >= 1e6 else 1
     suffix = 'B' if scale == 1e9 else 'M' if scale == 1e6 else ''
-    return f'{v / scale:,.1f}{suffix}'
+    return f"{'-' if v < 0 else ''}${abs(v) / scale:,.1f}{suffix}" if money else f'{v / scale:,.1f}{suffix}'
 
 
 def _plain(v):
@@ -276,12 +297,15 @@ def _aggregate(d, group, red_col):
 
 # ── Charts ────────────────────────────────────────────────────────────────────
 
-def _hover(x, value_label, value):
+def _hover(x, value_label, value, money=False):
     parts = [f"<b>{x['label']}</b>"]
     for lab, key in (('Sector', 'sector'), ('Subsector', 'subsector'), ('Asset type', 'asset_type'), ('Continent', 'continent')):
         if x.get(key):
             parts.append(f'{lab}: {x[key]}')
-    parts.append(f"{value_label}: {f'{value:,.2f}'.rstrip('0').rstrip('.') if _finite(value) else '—'}")
+    if money:
+        parts.append(f"{value_label}: {_usd(value, 2)}")
+    else:
+        parts.append(f"{value_label}: {f'{value:,.2f}'.rstrip('0').rstrip('.') if _finite(value) else '—'}")
     return '<br>'.join(parts)
 
 
@@ -299,14 +323,14 @@ def _bar_chart(agg, field, title, ytitle, shared_order, log_scale, red_col):
 
     fig = go.Figure()
     fig.add_bar(x=xvals, y=[tf(v) for v in ys], width=0.8, name='Weighted average' if field == 'npv' else title,
-                customdata=[_hover(x, title, x[field]) for x in a], marker_color=colors,
+                customdata=[_hover(x, title, x[field], field == 'npv') for x in a], marker_color=colors,
                 hovertemplate='%{customdata}<extra></extra>', showlegend=False)
     marker_line = dict(color='rgba(255,255,255,0.7)', width=1)
     if field == 'npv':
         for name, key, color, lab in (('Low', 'npvLow', LOW_COLOR, 'NPV Cost / tCO₂e — Low'),
                                       ('High', 'npvHigh', HIGH_COLOR, 'NPV Cost / tCO₂e — High')):
             fig.add_scatter(x=xvals, y=[tf(x[key]) for x in a], mode='markers', name=name,
-                            customdata=[_hover(x, lab, x[key]) for x in a],
+                            customdata=[_hover(x, lab, x[key], True) for x in a],
                             marker=dict(symbol='circle', size=8, color=color, line=marker_line),
                             hovertemplate='%{customdata}<extra></extra>')
     if field == 'ratio':
@@ -321,6 +345,8 @@ def _bar_chart(agg, field, title, ytitle, shared_order, log_scale, red_col):
                  automargin=False, autorange=True)
     if is_log:
         yaxis.update(_signed_log_ticks([v for x in a for v in (x['npv'], x['npvLow'], x['npvHigh'])]))
+    elif field == 'npv':
+        yaxis.update(tickprefix='$', tickformat=',.0f', exponentformat='none')
     fig.update_layout(
         title=dict(text=title, font=dict(size=18), y=0.93, yanchor='top'),
         margin=dict(l=125, r=30, t=82, b=85), height=520, bargap=0.2, dragmode='zoom',
@@ -336,7 +362,8 @@ def _bar_chart(agg, field, title, ytitle, shared_order, log_scale, red_col):
 def _cash_axis(traces_y):
     vals = [v for ys in traces_y for v in ys if _finite(v)]
     mx = max([0] + [abs(v) for v in vals])
-    return dict(tickformat=',.4f' if 0 < mx < 0.005 else ',.2f', exponentformat='none', separatethousands=True)
+    return dict(tickprefix='$', tickformat=',.4f' if 0 < mx < 0.005 else (',.2f' if 0 < mx < 10 else ',.0f'),
+                exponentformat='none', separatethousands=True)
 
 
 # ── Simulator math (exact port) ───────────────────────────────────────────────
@@ -446,7 +473,10 @@ def _css():
         .st-key-ersc_params input { font-size:14.5px; padding:8px 10px; font-variant-numeric:tabular-nums; }
         .st-key-ersc_params [data-baseweb="select"] > div { font-size:14.5px; }
         .st-key-ersc_params [data-testid="stCaptionContainer"] { font-size:12.5px; margin-top:-0.2rem; }
-        .st-key-ersc_params .stButton button { min-height:38px; font-size:14px; }
+        .st-key-ersc_params .stButton, .st-key-ersc_params .stButton > button { width:100% !important; max-width:100%;
+            box-sizing:border-box; }
+        .st-key-ersc_params .stButton button { min-height:38px; font-size:14px; padding:0.35rem 0.5rem; height:auto; }
+        .st-key-ersc_params .stButton button p { white-space:normal; overflow-wrap:anywhere; line-height:1.25; }
         [data-testid="stCaptionContainer"] { font-size: 0.92rem; }
         .ersc-h3 { font-size:15px; font-weight:600; margin:2px 0 6px; opacity:.9; }
         /* expanders inside the simulator: flat, divider lines only (no boxes) */
@@ -550,8 +580,8 @@ def _simulator_body(all_df, rows):
                 st.session_state.update({
                     P + 'qty': '1000000', P + 'rev': '0', P + 'infl': '0', P + 'growth': '0', P + 'rate': 5.0,
                     P + 'impl': _plain(defaults['impl']), P + 'life': _plain(defaults['life']),
-                    P + 'cap_low': _plain(round(-defaults['cap_low'], 6)), P + 'cap_high': _plain(round(-defaults['cap_high'], 6)),
-                    P + 'op_low': _plain(round(-defaults['op_low'], 6)), P + 'op_high': _plain(round(-defaults['op_high'], 6)),
+                    P + 'cap_low': _plain(round(-defaults['cap_low'], 2)), P + 'cap_high': _plain(round(-defaults['cap_high'], 2)),
+                    P + 'op_low': _plain(round(-defaults['op_low'], 2)), P + 'op_high': _plain(round(-defaults['op_high'], 2)),
                 })
 
             name, unit = _quantity_basis(defaults['choice'], defaults['unit'], defaults['product'])
@@ -581,9 +611,16 @@ def _simulator_body(all_df, rows):
         v = _parse(text)
         return fallback if v is None else v
 
+    def num_exact(text, exact):
+        """Inputs show defaults rounded to 2 decimals; while the shown text is untouched, calculate with the exact default."""
+        v = _parse(text)
+        if v is None or abs(v - round(exact, 2)) < 1e-9:
+            return exact
+        return v
+
     sim = _simulate(
-        num(cl_t, -defaults['cap_low']), num(ch_t, -defaults['cap_high']), num(ol_t, -defaults['op_low']),
-        num(oh_t, -defaults['op_high']), rate, num(impl_t, 0), num(life_t, 1), num(qty_t, 1000000.0),
+        num_exact(cl_t, -defaults['cap_low']), num_exact(ch_t, -defaults['cap_high']), num_exact(ol_t, -defaults['op_low']),
+        num_exact(oh_t, -defaults['op_high']), rate, num(impl_t, 0), num(life_t, 1), num(qty_t, 1000000.0),
         num(rev_t, 0.0), num(infl_t, 0.0), num(growth_t, 0.0))
     low, avg_f, high = sim['low'], sim['avg'], sim['high']
     impl = sim['impl']
@@ -645,7 +682,7 @@ def _simulator_body(all_df, rows):
         ]
         fig = go.Figure()
         for nm, ys, kw, hl in cum_traces:
-            fig.add_scatter(x=years, y=ys, name=nm, customdata=[_cash_format(v) for v in ys],
+            fig.add_scatter(x=years, y=ys, name=nm, customdata=[_usd(v) for v in ys],
                             hovertemplate=f'Year %{{x}}<br>{hl}: %{{customdata}}<extra></extra>', **kw)
         shapes = [dict(type='line', x0=0, x1=years[-1], y0=0, y1=0, line=dict(width=1, color='#98a2b3')),
                   dict(type='line', x0=impl + 0.5, x1=impl + 0.5, xref='x', yref='paper', y0=0, y1=1,
@@ -669,19 +706,19 @@ def _simulator_body(all_df, rows):
         capex_opex = [-sim['ca'] if y == 0 else avg_f['operating'][i] for i, y in enumerate(years)]
         fig = go.Figure()
         fig.add_bar(x=years, y=capex_opex, name='CAPEX / average OPEX', marker_color=color, opacity=0.72,
-                    customdata=[_cash_format(v) for v in capex_opex],
+                    customdata=[_usd(v) for v in capex_opex],
                     hovertemplate='Year %{x}<br>CAPEX / OPEX: %{customdata}<extra></extra>')
         if sim['revenue'] != 0:
             fig.add_bar(x=years, y=avg_f['sales'], name='Business sales revenue', marker_color=LOW_COLOR,
-                        customdata=[_cash_format(v) for v in avg_f['sales']],
-                        hovertemplate='Year %{x}<br>Revenue: $%{customdata}<extra></extra>')
+                        customdata=[_usd(v) for v in avg_f['sales']],
+                        hovertemplate='Year %{x}<br>Revenue: %{customdata}<extra></extra>')
         fig.add_scatter(x=years, y=low['annual'], mode='markers', name='Low cost net',
                         marker=dict(size=8, symbol='circle-open', color=LOW_COLOR, line=dict(width=1.5)),
-                        customdata=[_cash_format(v) for v in low['annual']],
+                        customdata=[_usd(v) for v in low['annual']],
                         hovertemplate='Year %{x}<br>Low: %{customdata}<extra></extra>')
         fig.add_scatter(x=years, y=high['annual'], mode='markers', name='High cost net',
                         marker=dict(size=8, symbol='diamond-open', color=HIGH_COLOR, line=dict(width=1.5)),
-                        customdata=[_cash_format(v) for v in high['annual']],
+                        customdata=[_usd(v) for v in high['annual']],
                         hovertemplate='Year %{x}<br>High: %{customdata}<extra></extra>')
         fig.update_layout(
             **base_layout, barmode='group',
@@ -766,7 +803,7 @@ def show_ers_cost():
     # ── KPIs (filled in now that the controls have been read) ─────────────────
     with kpi_box:
         k = st.columns(5)
-        _kpi(k[0], 'NPV cost / tCO₂e', _fmt(_wavg(prepared, 'avg')),
+        _kpi(k[0], 'NPV cost / tCO₂e', _usd_short(_wavg(prepared, 'avg')),
              f'{rate}% discount rate · {w_label}')
         _kpi(k[1], 'ERS cost assumptions', f"{len(_uniq([_s(v) for v in rows['cost_id']])):,}", 'Distinct cost IDs in selection')
         _kpi(k[2], 'Subsectors', f"{len(_uniq([_s(v) for v in rows['subsector']])):,}", 'Distinct subsectors in selection')
@@ -792,7 +829,7 @@ def show_ers_cost():
     tdf = pd.DataFrame([{
         'Sector': t['sector'], 'Subsector': t['subsector'], 'Asset type': t['asset_type'], 'ERS ID': t['ers_id'],
         'ERS name': t['strategy_name'], 'Continent': t['Continent'],
-        'NPV Cost/tCO₂e': _fmt(t['npv']), 'Reductions': _fmt(t['red']), 'Reduction asset': _fmt(t['ra']),
+        'NPV Cost/tCO₂e': _usd_short(t['npv']), 'Reductions': _fmt(t['red']), 'Reduction asset': _fmt(t['ra']),
         'Emissions': _fmt(t['em'])} for t in table[:1000]])
     st.dataframe(tdf, use_container_width=True, hide_index=True, height=420)
 
