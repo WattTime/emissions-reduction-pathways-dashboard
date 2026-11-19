@@ -473,8 +473,10 @@ def _css():
         .st-key-ersc_params input { font-size:14.5px; padding:8px 10px; font-variant-numeric:tabular-nums; }
         .st-key-ersc_params [data-baseweb="select"] > div { font-size:14.5px; }
         .st-key-ersc_params [data-testid="stCaptionContainer"] { font-size:12.5px; margin-top:-0.2rem; }
-        .st-key-ersc_params .stButton, .st-key-ersc_params .stButton > button { width:100% !important; max-width:100%;
-            box-sizing:border-box; }
+        .st-key-ersc_params { box-sizing:border-box; overflow:hidden; }
+        .st-key-ersc_params > [data-testid="stElementContainer"] { width:auto !important; max-width:100% !important; min-width:0; }
+        .st-key-ersc_params .stButton { width:100% !important; max-width:100%; }
+        .st-key-ersc_params .stButton > button { width:100% !important; max-width:100%; box-sizing:border-box; }
         .st-key-ersc_params .stButton button { min-height:38px; font-size:14px; padding:0.35rem 0.5rem; height:auto; }
         .st-key-ersc_params .stButton button p { white-space:normal; overflow-wrap:anywhere; line-height:1.25; }
         [data-testid="stCaptionContainer"] { font-size: 0.92rem; }
