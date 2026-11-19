@@ -414,9 +414,28 @@ def _breakdown_df(rows, first_label, name_of, activity_unit=None, total=True):
     return pd.DataFrame(recs)
 
 
+# Decimals per column. Streamlit ignores Styler number formats on numeric columns, so we round the data and
+# use column_config format='localized' (thousands separators, numeric sorting kept). The ($)/($M) unit is in the header.
+_TABLE_DECIMALS = {
+    '#': 0, 'Assets': 0, '% of assets': 1, '% of reductions': 1, '% of reductions at negative cost': 1,
+    'Reductions (MtCO₂e/yr)': 2, 'Fuel replaced (EJ)': 2, 'Electricity added (EJ)': 2,
+    'Reductions (tCO₂e/yr)': 0, 'Energy (TJ)': 0,
+    'Net present value ($M)': 1, 'Net present value ($)': 0, 'Cost per tCO₂e/yr ($)': 0,
+    'ERS net present value ($)': 0, 'Clean power cost ($)': 0, 'Total cost incl. clean power ($)': 0,
+    'Cost per tCO2e/yr, Clean Grid ($)': 0, 'Cost per tCO2e/yr, BAU Grid ($)': 0,
+}
+
+
 def _show(df, cfg, height=None, key=None):
+    dec = {c: _TABLE_DECIMALS[c] for c in df.columns if c in _TABLE_DECIMALS}
+    df = df.copy()
+    for c, d in dec.items():
+        df[c] = pd.to_numeric(df[c], errors='coerce').round(d)
     cols = [c for c in _COST_COLS if c in df.columns]
     data = df.style.map(_cost_style, subset=cols) if cols else df
+    cfg = dict(cfg or {})
+    for c in dec:
+        cfg[c] = _C.NumberColumn(c, format='localized', width='small' if c == '#' else None)
     st.dataframe(data, column_config=cfg, hide_index=True, use_container_width=True, height=height, key=key)
 
 
